@@ -346,64 +346,38 @@
     },
     {
       "id": 53,
-      "input": "a |  x  \n\n",
+      "input": "a {}\n  |x\n\n",
+      "error": "E08"
+    },
+    {
+      "id": 54,
+      "input": "a []\n  |x\n\n",
+      "error": "E08"
+    },
+    {
+      "id": 55,
+      "input": "|x\n\n",
+      "error": "E11"
+    },
+    {
+      "id": 56,
+      "input": "a -\n  |  x  \n\n",
       "expected": {
         "a": "  x  "
       }
     },
     {
-      "id": 54,
-      "input": "a |\n\n",
-      "expected": {
-        "a": ""
-      }
-    },
-    {
-      "id": 55,
-      "input": "a |x\n  |y\n\n",
-      "error": "E10"
-    },
-    {
-      "id": 56,
-      "input": "[]\n  |x\n\n",
-      "expected": [
-        "x"
-      ]
-    },
-    {
       "id": 57,
-      "input": "|x\n\n",
-      "expected": "x"
-    },
-    {
-      "id": 58,
       "input": "\"|\" - v\n\n",
       "expected": {
         "|": "v"
       }
     },
     {
-      "id": 59,
-      "input": "a {}\n  |x\n\n",
-      "error": "E15"
-    },
-    {
-      "id": 60,
-      "input": "a []\n  b - 1\n\n",
-      "error": "E15"
-    },
-    {
-      "id": 61,
+      "id": 58,
       "input": "a - 　x　\n\n",
       "expected": {
         "a": "x"
-      }
-    },
-    {
-      "id": 62,
-      "input": "a |　x　\n\n",
-      "expected": {
-        "a": "　x　"
       }
     }
   ],

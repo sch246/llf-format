@@ -28,7 +28,7 @@ def _err(code, message, line=None):
     raise LLFError(code, message, line)
 
 
-HEADS = ("-", "_", "{}", "[]", "|")
+HEADS = ("-", "_", "{}", "[]")
 
 # Unicode White_Space 属性为真的码点；按属性定义，不按某个语言库的实现定义。
 _WS = frozenset(
@@ -57,8 +57,6 @@ def _indent_of(raw, lineno):
 
 
 def _starts_with_head(content):
-    if content.startswith("|"):
-        return True
     return content.split(None, 1)[0] in HEADS
 
 
@@ -87,6 +85,8 @@ class _Parser:
         lineno, indent, content, _raw = first
         if indent != 0:
             _err("E03", "顶层缩进必须为 0", lineno)
+        if content.startswith("|"):
+            _err("E11", "文本行出现在不允许的位置", lineno)
         if _classify(content) == "single":
             self.i += 1
             head, payload = self._head(content, lineno)
@@ -108,7 +108,7 @@ class _Parser:
             if nxt is None:
                 break
             lineno, li, content, _raw = nxt
-            if content.startswith("|") and li > indent:
+            if content.startswith("|"):
                 _err("E11", "文本行出现在不允许的位置", lineno)
             if li < indent:
                 break
@@ -134,7 +134,7 @@ class _Parser:
             if nxt is None:
                 break
             lineno, li, content, _raw = nxt
-            if content.startswith("|") and li > indent:
+            if content.startswith("|"):
                 _err("E11", "文本行出现在不允许的位置", lineno)
             if li < indent:
                 break
@@ -223,8 +223,6 @@ class _Parser:
         return chr(cp), i
 
     def _head(self, rest, lineno):
-        if rest.startswith("|"):
-            return "|", rest[1:]
         if rest.startswith("-"):
             if rest.split(None, 1)[0] == "-":
                 payload = _strip_ws(rest[1:])
@@ -252,11 +250,6 @@ class _Parser:
             if not nxt[2].startswith("|"):
                 _err("E10", "字符串的子层只能是文本行", nxt[0])
             return self._text_block(indent)
-        if head == "|":
-            nxt = self.peek()
-            if nxt is not None and nxt[1] > indent:
-                _err("E10", "| 不能带子层", nxt[0])
-            return payload
         if head == "_":
             nxt = self.peek()
             if nxt is not None and nxt[1] > indent:
@@ -268,6 +261,8 @@ class _Parser:
                 return {}
             if nxt[1] != indent + 2:
                 _err("E03", "缩进不是恰好多 2 格", nxt[0])
+            if nxt[2].startswith("|"):
+                _err("E08", "字典下不能有文本行", nxt[0])
             return self._map(indent + 2)
         if head == "[]":
             nxt = self.peek()
@@ -275,6 +270,8 @@ class _Parser:
                 return []
             if nxt[1] != indent + 2:
                 _err("E03", "缩进不是恰好多 2 格", nxt[0])
+            if nxt[2].startswith("|"):
+                _err("E08", "列表下不能有文本行", nxt[0])
             return self._list(indent + 2)
         _err("E07", "未知的头符号：%r" % head, lineno)
 
@@ -365,15 +362,13 @@ def _encode_key(key):
 
 
 def _string_lines(s):
-    if "\n" in s:
+    if s == "":
+        return ["-"]
+    if "\n" in s or s != _strip_ws(s):
         parts = ["-"]
         for line in s.split("\n"):
             parts.append("|" + line)
         return parts
-    if s == "":
-        return ["-"]
-    if s != _strip_ws(s):
-        return ["|" + s]
     return ["- " + s]
 
 
