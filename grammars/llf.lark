@@ -1,0 +1,80 @@
+// LLF v0.11 tool-call grammar for outlines / Lark.
+// 结构行严格 2 空格缩进，最多 6 层；文本行可任意缩进；消息以 --LLF-END 结束。
+// 与 grammars/llf.gbnf 同源；用 Earley（dynamic lexer）解析，所有正则均非零宽。
+
+start: map0 end | value0 end
+end: "--LLF-END" /\n/
+
+value0: str | null_line | dict0 | array0
+value1: str | null_line | dict1 | array1
+value2: str | null_line | dict2 | array2
+value3: str | null_line | dict3 | array3
+value4: str | null_line | dict4 | array4
+value5: str | null_line | dict5 | array5
+value6: str | null_line | dict6 | array6
+
+str: "-" " "* /\n/ textblock? | "-" " " /[^\n]/ * /\n/
+textblock: textline+
+textline: " "* "|" /[^\n]/ * /\n/
+null_line: "_" /[ \t]/ * /\n/
+
+map0: entry0*
+entry0: key " " value0
+items0: item0*
+item0: value0
+dict0: "{}" /[ \t]/ * /\n/ map1
+array0: "[]" /[ \t]/ * /\n/ items1
+
+map1: entry1*
+entry1: "  " key " " value1
+items1: item1*
+item1: "  " value1
+dict1: "{}" /[ \t]/ * /\n/ map2
+array1: "[]" /[ \t]/ * /\n/ items2
+
+map2: entry2*
+entry2: "    " key " " value2
+items2: item2*
+item2: "    " value2
+dict2: "{}" /[ \t]/ * /\n/ map3
+array2: "[]" /[ \t]/ * /\n/ items3
+
+map3: entry3*
+entry3: "      " key " " value3
+items3: item3*
+item3: "      " value3
+dict3: "{}" /[ \t]/ * /\n/ map4
+array3: "[]" /[ \t]/ * /\n/ items4
+
+map4: entry4*
+entry4: "        " key " " value4
+items4: item4*
+item4: "        " value4
+dict4: "{}" /[ \t]/ * /\n/ map5
+array4: "[]" /[ \t]/ * /\n/ items5
+
+map5: entry5*
+entry5: "          " key " " value5
+items5: item5*
+item5: "          " value5
+dict5: "{}" /[ \t]/ * /\n/ map6
+array5: "[]" /[ \t]/ * /\n/ items6
+
+map6: entry6*
+entry6: "            " key " " value6
+items6: item6*
+item6: "            " value6
+dict6: "{}" /[ \t]/ * /\n/
+array6: "[]" /[ \t]/ * /\n/
+
+key: plain_key | quoted_key
+plain_key: plain_len1 | plain_len2 | plain_len3plus
+plain_len1: /[^\x20\t\n\r"#|\-_]/
+plain_len2: /\{/ /[^\x20\t\n\r"}]/ | /\[/ /[^\x20\t\n\r"\]]/ | plain_start2 plain_char
+plain_len3plus: plain_start plain_char plain_char+
+plain_char: /[^\x20\t\n\r"]/
+plain_start: /[^\x20\t\n\r"#|]/
+plain_start2: /[^\x20\t\n\r"#|{\[]/
+quoted_key: /"/ qchar* /"/
+qchar: /[^"\\]/ | /\\/ /["\\\/bfnrt]/ | /\\/ "u" hex hex hex hex
+hex: /[0-9a-fA-F]/

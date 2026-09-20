@@ -41,8 +41,10 @@ v0.11 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版�
 - [tools/build_vectors.py](tools/build_vectors.py)：从 Python 字面量重新生成 `vectors.json`。
 - [tools/check_docs.py](tools/check_docs.py)：检查 Markdown 表格列数一致，防止单元格里的 `|` 把表切坏。
 - [grammars/llf.gbnf](grammars/llf.gbnf)：GBNF 语法，供 llama.cpp / XGrammar 等约束解码直接使用；结构缩进建模到 6 层，文本行不限缩进。
-- [tools/build_grammars.py](tools/build_grammars.py)：重新生成 `grammars/llf.gbnf`。
-- [tools/check_grammar.py](tools/check_grammar.py)：用一个小型 GBNF 识别器验证语法，`python3 tools/check_grammar.py`。
+- [grammars/llf.lark](grammars/llf.lark)：同源的 Lark 语法，供 outlines 使用（Earley / dynamic lexer）。
+- [tools/build_grammars.py](tools/build_grammars.py)：重新生成两份语法，`python3 tools/build_grammars.py`。
+- [tools/check_grammar.py](tools/check_grammar.py)：用一个小型 GBNF 识别器验证 GBNF，无需第三方依赖。
+- [tools/check_lark.py](tools/check_lark.py)：用真正的 Lark 验证 Lark 语法，需 `pip install lark`；没装就跳过。
 
 语法保证结构缩进、头、文本块与 `--LLF-END` 的合法性；它**不**校验键是否符合调用方的 schema，也不含注释与多消息流。
 
