@@ -45,6 +45,7 @@ v0.11 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版�
 - [tools/build_grammars.py](tools/build_grammars.py)：重新生成两份语法，`python3 tools/build_grammars.py`。
 - [tools/check_grammar.py](tools/check_grammar.py)：用一个小型 GBNF 识别器验证 GBNF，无需第三方依赖。
 - [tools/check_lark.py](tools/check_lark.py)：用真正的 Lark 验证 Lark 语法，需 `pip install lark`；没装就跳过。
+- [EXTENSIONS.md](EXTENSIONS.md)：不属于本体的可选约定；当前有帧流 `--LLF-BEGIN` … `--LLF-END` 与 `llf.parse_frames`。
 
 语法保证结构缩进、头、文本块与 `--LLF-END` 的合法性；它**不**校验键是否符合调用方的 schema，也不含注释与多消息流。
 

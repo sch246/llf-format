@@ -553,5 +553,52 @@
         "a": "x"
       }
     }
+  ],
+  "frame_vectors": [
+    {
+      "id": 1,
+      "input": "--LLF-BEGIN\ncall - write_file\nid - c1\n--LLF-END\n--LLF-BEGIN\ncall - read_file\nid - c2\n--LLF-END\n",
+      "expected_frames": [
+        {
+          "call": "write_file",
+          "id": "c1"
+        },
+        {
+          "call": "read_file",
+          "id": "c2"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "input": "--LLF-BEGIN\ncall - a\n--LLF-END\n\n\n--LLF-BEGIN\ncall - b\n--LLF-END\n",
+      "expected_frames": [
+        {
+          "call": "a"
+        },
+        {
+          "call": "b"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "input": "noise\n--LLF-BEGIN\ncall - a\n--LLF-END\ntrailing\n",
+      "expected_frames": [
+        {
+          "call": "a"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "input": "--LLF-BEGIN\ncall - a\n",
+      "error": "E02"
+    },
+    {
+      "id": 5,
+      "input": "--LLF-BEGIN\ncall - a\n--LLF-BEGIN\ncall - b\n--LLF-END\n",
+      "error": "E02"
+    }
   ]
 }

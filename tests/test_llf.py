@@ -44,15 +44,33 @@ def check_one(v, strict):
     return None
 
 
+def check_frames(v, strict):
+    try:
+        got = llf.parse_frames(v["input"], strict=strict)
+    except llf.LLFError as error:
+        if v.get("error") == error.code:
+            return None
+        return "期望错误 %s，实际抛 %s" % (v.get("error"), error.code)
+    if "error" in v:
+        return "期望错误 %s，实际解析成 %r" % (v["error"], got)
+    if got != v["expected_frames"]:
+        return "期望 %r，实际 %r" % (v["expected_frames"], got)
+    return None
+
+
 def run_vectors():
     data = load_vectors()
     failures = []
     counts = []
-    for key, strict in (("vectors", False), ("strict_vectors", True)):
+    for key, strict, check in (
+        ("vectors", False, check_one),
+        ("strict_vectors", True, check_one),
+        ("frame_vectors", False, check_frames),
+    ):
         items = data[key]
         counts.append(len(items))
         for v in items:
-            message = check_one(v, strict)
+            message = check(v, strict)
             if message:
                 failures.append("%s %s: %s" % (key, v["id"], message))
     return failures, counts
@@ -157,8 +175,8 @@ def main():
         for item in failures[:20]:
             print("  " + item)
         return 1
-    print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + 2000 组定长词汇 fuzz + 5000 组随机字节 fuzz"
-          % (counts[0], counts[1]))
+    print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + %d 条帧流向量 + 2000 组定长词汇 fuzz + 5000 组随机字节 fuzz"
+          % (counts[0], counts[1], counts[2]))
     return 0
 
 

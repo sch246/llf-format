@@ -12,6 +12,7 @@ import os
 
 DEFAULT = []
 STRICT = []
+FRAMES = []
 
 
 def ok(i, text, expected):
@@ -28,6 +29,14 @@ def bad(i, text, code):
 
 def strict_ok(i, text, expected):
     STRICT.append({"id": i, "input": text, "expected": expected})
+
+
+def frame_ok(i, text, expected):
+    FRAMES.append({"id": i, "input": text, "expected_frames": expected})
+
+
+def frame_bad(i, text, code):
+    FRAMES.append({"id": i, "input": text, "error": code})
 
 
 END = "\n--LLF-END\n"
@@ -123,16 +132,24 @@ ok_multi(81, "\n\n" + "a - 1" + END + "a - 2" + END, [{"a": "1"}, {"a": "2"}])
 strict_ok("S1", "a -\n  |x\r\n--LLF-END\n", {"a": "x\r"})
 strict_ok("S2", "a - x\r\n--LLF-END\n", {"a": "x"})
 
+# 扩展：--LLF-BEGIN ... --LLF-END 帧流（见 EXTENSIONS.md）。
+frame_ok(1, "--LLF-BEGIN\ncall - write_file\nid - c1\n--LLF-END\n--LLF-BEGIN\ncall - read_file\nid - c2\n--LLF-END\n",
+         [{"call": "write_file", "id": "c1"}, {"call": "read_file", "id": "c2"}])
+frame_ok(2, "--LLF-BEGIN\ncall - a\n--LLF-END\n\n\n--LLF-BEGIN\ncall - b\n--LLF-END\n", [{"call": "a"}, {"call": "b"}])
+frame_ok(3, "noise\n--LLF-BEGIN\ncall - a\n--LLF-END\ntrailing\n", [{"call": "a"}])
+frame_bad(4, "--LLF-BEGIN\ncall - a\n", "E02")
+frame_bad(5, "--LLF-BEGIN\ncall - a\n--LLF-BEGIN\ncall - b\n--LLF-END\n", "E02")
+
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     target = os.path.join(here, "..", "vectors.json")
-    payload = {"vectors": DEFAULT, "strict_vectors": STRICT}
+    payload = {"vectors": DEFAULT, "strict_vectors": STRICT, "frame_vectors": FRAMES}
     with open(target, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
-    print("wrote %d vectors + %d strict vectors to %s"
-          % (len(DEFAULT), len(STRICT), os.path.normpath(target)))
+    print("wrote %d vectors + %d strict vectors + %d frame vectors to %s"
+          % (len(DEFAULT), len(STRICT), len(FRAMES), os.path.normpath(target)))
 
 
 if __name__ == "__main__":

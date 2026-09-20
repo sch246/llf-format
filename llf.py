@@ -33,6 +33,9 @@ HEADS = ("-", "_", "{}", "[]")
 # 消息结束符：整行去掉首尾空白后等于这个字面量。
 TERMINATOR = "--LLF-END"
 
+# 扩展（见 EXTENSIONS.md）：帧流的起始框标记。
+BEGIN = "--LLF-BEGIN"
+
 # Unicode White_Space 属性为真的码点；按属性定义，不按某个语言库的实现定义。
 _WS = frozenset(
     [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0x85, 0xA0, 0x1680]
@@ -357,6 +360,28 @@ def parse_multi(text, strict=False):
             _err("E02", "缺少结束符（截断）")
         out.append(_Parser(_lines_from(raw_lines[start:end])).parse_message())
         start = end + 1
+    return out
+
+
+def parse_frames(text, strict=False):
+    """解析 --LLF-BEGIN ... --LLF-END 帧流（扩展，见 EXTENSIONS.md），返回消息列表。
+
+    frame 之外的内容与空行忽略；frame 内仍按单条 LLF 消息解析。
+    """
+    raw_lines = _raw_lines(_normalize(text, strict))
+    out = []
+    start = None
+    for idx, raw in enumerate(raw_lines):
+        marker = _strip_ws(raw)
+        if marker == BEGIN:
+            if start is not None:
+                _err("E02", "帧流里上一个 frame 缺少结束符（截断）")
+            start = idx + 1
+        elif marker == TERMINATOR and start is not None:
+            out.append(_Parser(_lines_from(raw_lines[start:idx])).parse_message())
+            start = None
+    if start is not None:
+        _err("E02", "帧流缺少结束符（截断）")
     return out
 
 
