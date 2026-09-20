@@ -20,38 +20,48 @@ def load_vectors():
         return json.load(fh)
 
 
-def run_vectors():
-    failures = []
-    for v in load_vectors():
+def check_one(v, strict):
+    if "expected_multi" in v:
         try:
-            got = llf.parse(v["input"])
+            got = llf.parse_multi(v["input"], strict=strict)
         except llf.LLFError as error:
-            if v.get("error") == error.code:
-                continue
-            failures.append(
-                "vector %s: 期望错误 %s，实际抛 %s"
-                % (v["id"], v.get("error"), error.code)
-            )
-            continue
-        except Exception as error:  # noqa: BLE001
-            failures.append("vector %s: 意外异常 %r" % (v["id"], error))
-            continue
-        if "error" in v:
-            failures.append(
-                "vector %s: 期望错误 %s，实际解析成 %r"
-                % (v["id"], v["error"], got)
-            )
-        elif got != v["expected"]:
-            failures.append(
-                "vector %s: 期望 %r，实际 %r" % (v["id"], v["expected"], got)
-            )
-    return failures
+            return "期望多条消息，实际抛 %s" % error.code
+        if got != v["expected_multi"]:
+            return "期望 %r，实际 %r" % (v["expected_multi"], got)
+        return None
+    try:
+        got = llf.parse(v["input"], strict=strict)
+    except llf.LLFError as error:
+        if v.get("error") == error.code:
+            return None
+        return "期望错误 %s，实际抛 %s" % (v.get("error"), error.code)
+    except Exception as error:  # noqa: BLE001
+        return "意外异常 %r" % (error,)
+    if "error" in v:
+        return "期望错误 %s，实际解析成 %r" % (v["error"], got)
+    if got != v["expected"]:
+        return "期望 %r，实际 %r" % (v["expected"], got)
+    return None
+
+
+def run_vectors():
+    data = load_vectors()
+    failures = []
+    counts = []
+    for key, strict in (("vectors", False), ("strict_vectors", True)):
+        items = data[key]
+        counts.append(len(items))
+        for v in items:
+            message = check_one(v, strict)
+            if message:
+                failures.append("%s %s: %s" % (key, v["id"], message))
+    return failures, counts
 
 
 STRINGS = [
     "", " ", "  x", "x  ", "a b", 'a"b', "a\\b", "a\nb", "x\n", "\n",
     "3", "007", "true", "null", "-", "_", "{}", "[]", "#x", "名字", "柚子",
-    "line1\nline2\n", "tab\there", "a\r\nb", "call - fake",
+    "line1\nline2\n", "tab\there", "a\r\nb", "x\r", "call - fake",
 ]
 
 
@@ -92,14 +102,15 @@ def run_fuzz(count=2000, seed=20260921):
 
 
 def main():
-    failures = run_vectors()
+    failures, counts = run_vectors()
     failures += run_fuzz()
     if failures:
         print("失败 %d 项：" % len(failures))
         for item in failures[:20]:
             print("  " + item)
         return 1
-    print("全部通过：46 条向量 + 2000 组往返 fuzz")
+    print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + 2000 组往返 fuzz"
+          % (counts[0], counts[1]))
     return 0
 
 

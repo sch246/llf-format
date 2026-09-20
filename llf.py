@@ -49,6 +49,12 @@ def _classify(content):
     return "map"
 
 
+def _starts_with_head(content):
+    if content.startswith("-") and (len(content) == 1 or content[1] == " "):
+        return True
+    return content.rstrip(" \t") in ("_", "{}", "[]")
+
+
 class _Parser:
     def __init__(self, lines):
         self.lines = lines
@@ -122,6 +128,8 @@ class _Parser:
             if li > indent:
                 _err("E03", "缩进不是恰好多 2 格", lineno)
             self.i += 1
+            if not _starts_with_head(content):
+                _err("E15", "环境不匹配：列表环境里出现了不以头开头的行", lineno)
             head, payload = self._head(content, lineno)
             result.append(self._value(indent, head, payload, lineno))
         return result
@@ -208,7 +216,7 @@ class _Parser:
             if len(rest) == 1 or rest[1] == " ":
                 if len(rest) == 1:
                     return "-", None
-                return "-", rest[2:].rstrip(" \t")
+                return "-", rest[2:].rstrip(" \t\r")
             _err("E07", "未知的头符号：%r" % rest[:2], lineno)
         stripped = rest.rstrip(" \t")
         if stripped == "_":
@@ -347,7 +355,7 @@ def _encode_key(key):
 def _string_lines(s):
     if s == "":
         return ["-"]
-    if "\n" in s or s != s.rstrip(" \t"):
+    if "\n" in s or s != s.rstrip(" \t\r"):
         parts = ["-"]
         for line in s.split("\n"):
             parts.append("|" + line)

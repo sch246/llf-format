@@ -1,20 +1,33 @@
 """从 Python 字面量生成 vectors.json，避免手抄转义出错。
 
+vectors.json 的形态：
+    {"vectors": [...], "strict_vectors": [...]}
+前一组用默认（宽松）模式解析，后一组用严格模式。
+
     python3 tools/build_vectors.py
 """
 
 import json
 import os
 
-VECTORS = []
+DEFAULT = []
+STRICT = []
 
 
 def ok(i, text, expected):
-    VECTORS.append({"id": i, "input": text, "expected": expected})
+    DEFAULT.append({"id": i, "input": text, "expected": expected})
+
+
+def ok_multi(i, text, expected):
+    DEFAULT.append({"id": i, "input": text, "expected_multi": expected})
 
 
 def bad(i, text, code):
-    VECTORS.append({"id": i, "input": text, "error": code})
+    DEFAULT.append({"id": i, "input": text, "error": code})
+
+
+def strict_ok(i, text, expected):
+    STRICT.append({"id": i, "input": text, "expected": expected})
 
 
 ok(1, "a - hello\n\n", {"a": "hello"})
@@ -47,7 +60,7 @@ bad(27, "a -\n  |x\n  # c\n  |y\n\n", "E11")
 bad(28, "- 3\na - x\n\n", "E12")
 bad(29, "a {}\n  - - v\n\n", "E05")
 bad(30, "a _\n  b - 1\n\n", "E09")
-bad(31, "a []\n  - x\n  b - 1\n\n", "E07")
+bad(31, "a []\n  - x\n  b - 1\n\n", "E15")
 ok(32, "a -\n  |# 不是注释\n\n", {"a": "# 不是注释"})
 bad(33, "d @date 2026-09-19\n\n", "E07")
 ok(34, "名字 - 柚子\n\n", {"名字": "柚子"})
@@ -64,14 +77,26 @@ bad(44, '"a - v\n\n', "E14")
 bad(45, 'a"b - v\n\n', "E05")
 bad(46, "a\tb - v\n\n", "E05")
 
+ok_multi(47, "a - 1\n\na - 2\n\n", [{"a": "1"}, {"a": "2"}])
+bad(48, '"a" - 1\na - 2\n\n', "E06")
+ok(49, "a - \n\n", {"a": ""})
+ok(50, "a {}\n  b []\n    - x\nc - y\n\n", {"a": {"b": ["x"]}, "c": "y"})
+ok(51, "{}\n  a - 1\n\n", {"a": "1"})
+ok(52, "a - x\nb - y\n\n", {"a": "x", "b": "y"})
+
+strict_ok("S1", "a -\n  |x\r\n\n", {"a": "x\r"})
+strict_ok("S2", "a - x\r\n\n", {"a": "x"})
+
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     target = os.path.join(here, "..", "vectors.json")
+    payload = {"vectors": DEFAULT, "strict_vectors": STRICT}
     with open(target, "w", encoding="utf-8") as fh:
-        json.dump(VECTORS, fh, ensure_ascii=False, indent=2)
+        json.dump(payload, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
-    print("wrote %d vectors to %s" % (len(VECTORS), os.path.normpath(target)))
+    print("wrote %d vectors + %d strict vectors to %s"
+          % (len(DEFAULT), len(STRICT), os.path.normpath(target)))
 
 
 if __name__ == "__main__":
