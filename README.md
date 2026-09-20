@@ -37,11 +37,13 @@ v0.11 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版�
 
 - [llf.py](llf.py)：纯标准库的解析器与编码器；`python3 llf.py < message.llf` 可直接试。
 - [vectors.json](vectors.json)：79 条机器可读测试向量 + 2 条严格模式用例（输入字节 + 期望值或错误码）。
-- [tests/test_llf.py](tests/test_llf.py)：跑向量并做 2000 组 `decode(encode(x)) == x` 往返 fuzz，`python3 tests/test_llf.py`。
+- [tests/test_llf.py](tests/test_llf.py)：跑向量，并做 2000 组定长词汇 + 5000 组随机字节的 `decode(encode(x)) == x` 往返 fuzz，`python3 tests/test_llf.py`。
 - [tools/build_vectors.py](tools/build_vectors.py)：从 Python 字面量重新生成 `vectors.json`。
 - [tools/check_docs.py](tools/check_docs.py)：检查 Markdown 表格列数一致，防止单元格里的 `|` 把表切坏。
 
 ## 相关项目
+
+[YAML](https://yaml.org) 与 LLF 的块标量用同一个 `|` 记号，但处理方式恰好相反：YAML 靠缩进界定块、会把内容重新缩进、并且有著名的隐式类型推断（`NO`、`on`、`1.0` 会被读成布尔或数字，即 “Norway problem”）；LLF 用行首 `|` 标记界定块、不碰缩进、也完全不做类型推断。想要“一段可读的结构化文本”时，LLF 想避开的正是 YAML 的这类歧义。
 
 [NestedText](https://nestedtext.org) 同样用行前缀免除转义，也把标量类型交给应用层。两者最直接的区别在**字典与列表的表示**：NestedText 靠子行的形状推断容器类型，于是空字典、空列表与空字符串容易纠缠；LLF 把 `{}` / `[]` 显式写出，嵌套与空容器都没有歧义。LLF 另加了流式语义与明确的截断检测，定位于机器生成。
 

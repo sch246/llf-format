@@ -103,15 +103,61 @@ def run_fuzz(count=2000, seed=20260921):
     return failures
 
 
+RAND_CHARS = list('ab0 \t\n\r-_|#"\\{}[]') + [
+    "\u3000", "\u00a0", "\u000b", "\u001c", "\u2028", ":", ".", "/",
+]
+
+
+def random_string(rng, max_len=6):
+    return "".join(rng.choice(RAND_CHARS) for _ in range(rng.randint(0, max_len)))
+
+
+def random_byte_value(rng, depth=0):
+    choices = ["str", "none"]
+    if depth < 3:
+        choices += ["dict", "list"]
+    kind = rng.choice(choices)
+    if kind == "str":
+        return random_string(rng)
+    if kind == "none":
+        return None
+    if kind == "dict":
+        return {
+            random_string(rng): random_byte_value(rng, depth + 1)
+            for _ in range(rng.randint(0, 3))
+        }
+    return [random_byte_value(rng, depth + 1) for _ in range(rng.randint(0, 3))]
+
+
+def run_byte_fuzz(count=5000, seed=20260921):
+    rng = random.Random(seed)
+    failures = []
+    for i in range(count):
+        value = random_byte_value(rng)
+        text = llf.dumps(value)
+        try:
+            back = llf.parse(text, strict=True)
+        except llf.LLFError as error:
+            failures.append("byte fuzz %d: %s\n输入值 %r\n文本:\n%s" % (i, error, value, text))
+            continue
+        if back != value:
+            failures.append(
+                "byte fuzz %d: 往返不一致\n原值 %r\n解回 %r\n文本:\n%s"
+                % (i, value, back, text)
+            )
+    return failures
+
+
 def main():
     failures, counts = run_vectors()
     failures += run_fuzz()
+    failures += run_byte_fuzz()
     if failures:
         print("失败 %d 项：" % len(failures))
         for item in failures[:20]:
             print("  " + item)
         return 1
-    print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + 2000 组往返 fuzz"
+    print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + 2000 组定长词汇 fuzz + 5000 组随机字节 fuzz"
           % (counts[0], counts[1]))
     return 0
 
