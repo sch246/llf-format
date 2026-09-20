@@ -397,7 +397,7 @@ args {}
 
 以下问题需要在 v1.0 之前决定。
 
-- [ ] 正式名称。格式现在不做类型解释，`Line-Typed Format<</BT>> 这个名字已经名不副实，是否改名（例如 Line-Structured Format）。
+- [ ] 正式名称。格式现在不做类型解释，`Line-Typed Format` 这个名字已经名不副实，是否改名（例如 Line-Structured Format）。
 - [ ] MIME 类型和文件扩展名（暂定 `text/ltf`、`.ltf`）。
 - [ ] 是否允许非 ASCII 键名，或提供一种能写任意键名（含 `-`、`_`、空格、`#`）的形式，以便完整映射 JSON。
 - [ ] 是否规定嵌套深度和消息大小的上限，防止资源耗尽。
