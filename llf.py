@@ -337,7 +337,10 @@ def parse(text, strict=False):
 
 
 def parse_multi(text, strict=False):
-    """解析一个消息流，返回消息列表。消息之间的空行忽略。"""
+    """解析一个消息流，返回消息列表。消息之间的空行忽略。
+
+    这是参考实现的便利入口，不是格式要求：格式只定义单条消息。
+    """
     raw_lines = _raw_lines(_normalize(text, strict))
     out = []
     start = 0
