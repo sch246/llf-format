@@ -337,11 +337,14 @@ def parse(text, strict=False):
 
 
 def parse_multi(text, strict=False):
-    """解析一个消息流，返回消息列表。"""
+    """解析一个消息流，返回消息列表。消息之间的空行忽略。"""
     raw_lines = _raw_lines(_normalize(text, strict))
     out = []
     start = 0
     while start < len(raw_lines):
+        if _strip_ws(raw_lines[start]) == "":
+            start += 1
+            continue
         end = None
         for idx in range(start, len(raw_lines)):
             if _strip_ws(raw_lines[idx]) == TERMINATOR:

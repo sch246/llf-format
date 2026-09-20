@@ -512,6 +512,30 @@
       "expected": {
         "k\u001c": "v"
       }
+    },
+    {
+      "id": 80,
+      "input": "a - 1\n--LLF-END\n\na - 2\n--LLF-END\n",
+      "expected_multi": [
+        {
+          "a": "1"
+        },
+        {
+          "a": "2"
+        }
+      ]
+    },
+    {
+      "id": 81,
+      "input": "\n\na - 1\n--LLF-END\na - 2\n--LLF-END\n",
+      "expected_multi": [
+        {
+          "a": "1"
+        },
+        {
+          "a": "2"
+        }
+      ]
     }
   ],
   "strict_vectors": [
