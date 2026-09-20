@@ -469,6 +469,49 @@
       "id": 72,
       "input": "\n",
       "error": "E02"
+    },
+    {
+      "id": 73,
+      "input": "　 - v\n--LLF-END\n",
+      "error": "E05"
+    },
+    {
+      "id": 74,
+      "input": "\"　\" - v\n--LLF-END\n",
+      "expected": {
+        "　": "v"
+      }
+    },
+    {
+      "id": 75,
+      "input": "k  - v\n--LLF-END\n",
+      "error": "E05"
+    },
+    {
+      "id": 76,
+      "input": "\"k \" - v\n--LLF-END\n",
+      "expected": {
+        "k ": "v"
+      }
+    },
+    {
+      "id": 77,
+      "input": "k\u000b - v\n--LLF-END\n",
+      "error": "E05"
+    },
+    {
+      "id": 78,
+      "input": "\"k\u000b\" - v\n--LLF-END\n",
+      "expected": {
+        "k\u000b": "v"
+      }
+    },
+    {
+      "id": 79,
+      "input": "k\u001c - v\n--LLF-END\n",
+      "expected": {
+        "k\u001c": "v"
+      }
     }
   ],
   "strict_vectors": [

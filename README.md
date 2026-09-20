@@ -31,12 +31,12 @@ args {}
 
 ## 状态
 
-v0.10 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版本变化见 SPEC.md 第 12 节。
+v0.11 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版本变化见 SPEC.md 第 12 节。
 
 ## 参考实现
 
 - [llf.py](llf.py)：纯标准库的解析器与编码器；`python3 llf.py < message.llf` 可直接试。
-- [vectors.json](vectors.json)：72 条机器可读测试向量 + 2 条严格模式用例（输入字节 + 期望值或错误码）。
+- [vectors.json](vectors.json)：79 条机器可读测试向量 + 2 条严格模式用例（输入字节 + 期望值或错误码）。
 - [tests/test_llf.py](tests/test_llf.py)：跑向量并做 2000 组 `decode(encode(x)) == x` 往返 fuzz，`python3 tests/test_llf.py`。
 - [tools/build_vectors.py](tools/build_vectors.py)：从 Python 字面量重新生成 `vectors.json`。
 - [tools/check_docs.py](tools/check_docs.py)：检查 Markdown 表格列数一致，防止单元格里的 `|` 把表切坏。

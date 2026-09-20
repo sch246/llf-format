@@ -109,6 +109,15 @@ bad(70, "a - v\n\n", "E02")
 bad(71, "a -\n\t|x\n--LLF-END\n", "E03")
 bad(72, "\n", "E02")
 
+# v0.11：普通键名不得含任何 White_Space；分隔符明确为 U+0020。
+bad(73, "\u3000 - v" + END, "E05")
+ok(74, '"\u3000" - v' + END, {"\u3000": "v"})
+bad(75, "k\u00a0 - v" + END, "E05")
+ok(76, '"k\u00a0" - v' + END, {"k\u00a0": "v"})
+bad(77, "k\u000b - v" + END, "E05")
+ok(78, '"k\u000b" - v' + END, {"k\u000b": "v"})
+ok(79, "k\u001c - v" + END, {"k\u001c": "v"})
+
 strict_ok("S1", "a -\n  |x\r\n--LLF-END\n", {"a": "x\r"})
 strict_ok("S2", "a - x\r\n--LLF-END\n", {"a": "x"})
 

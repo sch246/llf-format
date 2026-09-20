@@ -77,7 +77,8 @@ def random_value(rng, depth=0):
         return None
     if kind == "dict":
         return {
-            rng.choice(["key", "a b", 'q"q', "-", "_", "", "#h", "名字", "a\tb", "a\nb", "--LLF-END"]): random_value(rng, depth + 1)
+            rng.choice(["key", "a b", 'q"q', "-", "_", "", "#h", "名字", "a\tb", "a\nb", "--LLF-END",
+                        "\u3000", "\u00a0", "\u000b", "k\u001c"]): random_value(rng, depth + 1)
             for _ in range(rng.randint(0, 4))
         }
     return [random_value(rng, depth + 1) for _ in range(rng.randint(0, 4))]

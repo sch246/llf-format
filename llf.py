@@ -1,6 +1,6 @@
 """LLF — Literal Line Format 参考解析器与编码器。
 
-实现 SPEC.md v0.10 定义的格式，只依赖标准库。
+实现 SPEC.md v0.11 定义的格式，只依赖标准库。
 
     from llf import parse, dumps, LLFError
     value = parse(text)
@@ -60,7 +60,7 @@ def _indent_of(raw, lineno):
 
 
 def _starts_with_head(content):
-    return content.split(None, 1)[0] in HEADS
+    return content.split(" ", 1)[0] in HEADS
 
 
 def _classify(content):
@@ -160,8 +160,8 @@ class _Parser:
             _err("E05", "键名为空", lineno)
         if '"' in key:
             _err("E05", "普通键名不能含双引号，需用引号键", lineno)
-        if "\t" in key:
-            _err("E05", "普通键名不能含 tab，需用引号键", lineno)
+        if any(ord(c) in _WS for c in key):
+            _err("E05", "普通键名不能含空白，需用引号键", lineno)
         if rest == "":
             _err("E04", "条目行只有键、没有头", lineno)
         if rest[0] == " ":
@@ -226,17 +226,16 @@ class _Parser:
         return chr(cp), i
 
     def _head(self, rest, lineno):
-        if rest.startswith("-"):
-            if rest.split(None, 1)[0] == "-":
-                payload = _strip_ws(rest[1:])
-                return "-", (payload if payload != "" else None)
-            _err("E07", "未知的头符号：%r" % rest[:2], lineno)
-        token = rest.split(None, 1)[0]
-        if token in ("_", "{}", "[]"):
-            if _strip_ws(rest[len(token):]) == "":
-                return token, None
+        token = rest.split(" ", 1)[0]
+        if token not in HEADS:
+            _err("E07", "未知的头符号：%r" % rest[:4], lineno)
+        payload = rest[len(token):]
+        if token == "-":
+            payload = _strip_ws(payload)
+            return "-", (payload if payload != "" else None)
+        if _strip_ws(payload) != "":
             _err("E08", "%s 后不能有载荷" % token, lineno)
-        _err("E07", "未知的头符号：%r" % rest[:4], lineno)
+        return token, None
 
     def _value(self, indent, head, payload, lineno):
         if head == "-":
@@ -362,7 +361,8 @@ def _sp(n):
 def _plain_key_ok(key):
     return (
         key != ""
-        and not any(c in key for c in ' \t"\n\r')
+        and not any(ord(c) in _WS for c in key)
+        and '"' not in key
         and key not in HEADS
         and not key.startswith("#")
         and not key.startswith("|")
