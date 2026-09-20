@@ -580,10 +580,11 @@ LLF 的结构与 JSON 一一对应，差别只在标量：LLF 没有数字与布
 - 明确行内分词只认 U+0020：头符号识别与普通键名提取不再使用语言自带的 `split(None)`。此前以 NBSP、U+3000 等开头的普通键会被误判成头，例如 `dumps({"\u3000": "v"})` 解不回来。
 - 新增测试向量 73–79。
 - 文档澄清（不改格式）：新增第 6 节“格式与 schema 解耦”，写明 LLF 不依赖 JSON / JSON Schema、不定义词法，用哪种 schema 由调用方自选；修正 v0.10 后残留的“`-` 的子层只能是文本行”措辞，改为“紧跟 `-` 的连续 `|` 行”；明确单条消息入口与消息流入口是**调用层**语境。测试加入 5000 组随机字节 fuzz。
+- 新增参考语法 `grammars/llf.gbnf`（GBNF，供 llama.cpp / XGrammar 约束解码）及生成与校验工具 `tools/build_grammars.py`、`tools/check_grammar.py`。
 
 ## 13. 待定问题
 
 - [ ] MIME 与扩展名：目标 `application/llf`（无前缀属标准树，需走 6838bis 的 community format 或 RFC）；过渡可先注册 `application/prs.llf`（个人树）。`.llf` 先去 mime-db / shared-mime-info，再考虑 IANA。
 - [ ] 消息流中两条消息之间是否允许空行（当前不允许；手写与日志拼接场景略紧）。
-- [ ] 是否提供官方 GBNF / Lark 语法，供 llama.cpp、outlines、XGrammar 等约束解码直接使用。
+- [ ] Lark / EBNF 版本（outlines）待补：GBNF 版已完成，见 `grammars/llf.gbnf`（由 `tools/build_grammars.py` 生成，`tools/check_grammar.py` 验证）。
 - [ ] 是否有其它语言需要参考实现（当前只有 Python）。

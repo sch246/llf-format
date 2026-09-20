@@ -40,6 +40,11 @@ v0.11 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版�
 - [tests/test_llf.py](tests/test_llf.py)：跑向量，并做 2000 组定长词汇 + 5000 组随机字节的 `decode(encode(x)) == x` 往返 fuzz，`python3 tests/test_llf.py`。
 - [tools/build_vectors.py](tools/build_vectors.py)：从 Python 字面量重新生成 `vectors.json`。
 - [tools/check_docs.py](tools/check_docs.py)：检查 Markdown 表格列数一致，防止单元格里的 `|` 把表切坏。
+- [grammars/llf.gbnf](grammars/llf.gbnf)：GBNF 语法，供 llama.cpp / XGrammar 等约束解码直接使用；结构缩进建模到 6 层，文本行不限缩进。
+- [tools/build_grammars.py](tools/build_grammars.py)：重新生成 `grammars/llf.gbnf`。
+- [tools/check_grammar.py](tools/check_grammar.py)：用一个小型 GBNF 识别器验证语法，`python3 tools/check_grammar.py`。
+
+语法保证结构缩进、头、文本块与 `--LLF-END` 的合法性；它**不**校验键是否符合调用方的 schema，也不含注释与多消息流。
 
 ## 相关项目
 
