@@ -50,7 +50,7 @@ args {}
 
 LLF 本体分不出"模型想**调用**"还是"模型想**输出**字符串 `call - x`"——两者在字节上完全一样。这不是缺陷：**意图不属于字面格式**，它由承载层决定。
 
-- **首选：用通道/角色。** 对话协议里，工具调用只出现在 assistant 的调用通道，工具结果只出现在 tool 通道；同一个字符串出现在正文里就是正文。LLF 只负责把参数序列化成字面值。这也和本体的立场一致：格式不解释内容。
+- **首选：用通道/角色。** 主流 API 把调用放在 assistant 消息的独立字段/块里（OpenAI 的 `tool_calls`、Anthropic 的 `tool_use`、Gemini 的 `functionCall`），只有 `arguments` / `input` 里才是参数字符串；结果走 tool 角色或 `tool_result` 块。LLF 只负责把参数序列化成字面值。**注意**：这是 API 层的视图——模型原始输出常常仍是带特殊 token / 标签的文本（Llama 3 的 `<|python_tag|>`、Hermes/Qwen 的 `<tool_call>…</tool_call>`、Mistral 的 `[TOOL_CALLS]`），由服务端的 tool parser 或 chat template 切出来。自己跑裸模型、没有这层 parser 时，这条边界得自己给：frame，或一个特殊 token。
 - **只有纯文本时，用 frame 当调用通道。** 约定：顶层的 `--LLF-BEGIN … --LLF-END` 是调用；frame 之外的 LLF 是数据。要展示一个调用示例，就把它写成字符串（例如文本块 `|call - x`），而不是裸 frame——这与本体里"内容行必带 `|`"是同一个分离原则。
 - **禁止从内容猜意图。** 看到 `call - rm -rf` 就当调用执行，正是注入；执行与否只能由通道/角色决定，不能由 payload 决定。
 
