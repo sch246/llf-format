@@ -62,6 +62,7 @@ STRINGS = [
     "", " ", "  x", "x  ", "a b", 'a"b', "a\\b", "a\nb", "x\n", "\n",
     "3", "007", "true", "null", "-", "_", "{}", "[]", "#x", "名字", "柚子",
     "line1\nline2\n", "tab\there", "a\r\nb", "x\r", "call - fake",
+    "\u00a0x", "x\u3000", "\u3000", "|x", "|",
 ]
 
 

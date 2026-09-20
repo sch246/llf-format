@@ -28,7 +28,23 @@ def _err(code, message, line=None):
     raise LLFError(code, message, line)
 
 
-PLAIN_RESERVED = ("-", "_", "{}", "[]")
+HEADS = ("-", "_", "{}", "[]", "|")
+
+# Unicode White_Space 属性为真的码点；按属性定义，不按某个语言库的实现定义。
+_WS = frozenset(
+    [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0x85, 0xA0, 0x1680]
+    + list(range(0x2000, 0x200B))
+    + [0x2028, 0x2029, 0x202F, 0x205F, 0x3000]
+)
+
+
+def _strip_ws(s):
+    i, j = 0, len(s)
+    while i < j and ord(s[i]) in _WS:
+        i += 1
+    while j > i and ord(s[j - 1]) in _WS:
+        j -= 1
+    return s[i:j]
 
 
 def _indent_of(raw, lineno):
@@ -40,19 +56,16 @@ def _indent_of(raw, lineno):
     return n
 
 
+def _starts_with_head(content):
+    if content.startswith("|"):
+        return True
+    return content.split(None, 1)[0] in HEADS
+
+
 def _classify(content):
     if content.startswith('"'):
         return "map"
-    tok = content.split(" ", 1)[0]
-    if tok in PLAIN_RESERVED:
-        return "single"
-    return "map"
-
-
-def _starts_with_head(content):
-    if content.startswith("-") and (len(content) == 1 or content[1] == " "):
-        return True
-    return content.rstrip(" \t") in ("_", "{}", "[]")
+    return "single" if _starts_with_head(content) else "map"
 
 
 class _Parser:
@@ -74,8 +87,6 @@ class _Parser:
         lineno, indent, content, _raw = first
         if indent != 0:
             _err("E03", "顶层缩进必须为 0", lineno)
-        if content.startswith("|"):
-            _err("E11", "文本行出现在不允许的位置", lineno)
         if _classify(content) == "single":
             self.i += 1
             head, payload = self._head(content, lineno)
@@ -97,13 +108,15 @@ class _Parser:
             if nxt is None:
                 break
             lineno, li, content, _raw = nxt
-            if content.startswith("|"):
+            if content.startswith("|") and li > indent:
                 _err("E11", "文本行出现在不允许的位置", lineno)
             if li < indent:
                 break
             if li > indent:
                 _err("E03", "缩进不是恰好多 2 格", lineno)
             self.i += 1
+            if _starts_with_head(content):
+                _err("E15", "环境不匹配：字典环境里出现了项行", lineno)
             if content.startswith('"'):
                 key, rest = self._quoted_key(content, lineno)
             else:
@@ -121,7 +134,7 @@ class _Parser:
             if nxt is None:
                 break
             lineno, li, content, _raw = nxt
-            if content.startswith("|"):
+            if content.startswith("|") and li > indent:
                 _err("E11", "文本行出现在不允许的位置", lineno)
             if li < indent:
                 break
@@ -146,8 +159,6 @@ class _Parser:
             _err("E05", "普通键名不能含双引号，需用引号键", lineno)
         if "\t" in key:
             _err("E05", "普通键名不能含 tab，需用引号键", lineno)
-        if key in PLAIN_RESERVED:
-            _err("E05", "键名不能恰好是头 %r，需用引号键" % key, lineno)
         if rest == "":
             _err("E04", "条目行只有键、没有头", lineno)
         if rest[0] == " ":
@@ -212,19 +223,18 @@ class _Parser:
         return chr(cp), i
 
     def _head(self, rest, lineno):
+        if rest.startswith("|"):
+            return "|", rest[1:]
         if rest.startswith("-"):
-            if len(rest) == 1 or rest[1] == " ":
-                if len(rest) == 1:
-                    return "-", None
-                return "-", rest[2:].rstrip(" \t\r")
+            if rest.split(None, 1)[0] == "-":
+                payload = _strip_ws(rest[1:])
+                return "-", (payload if payload != "" else None)
             _err("E07", "未知的头符号：%r" % rest[:2], lineno)
-        stripped = rest.rstrip(" \t")
-        if stripped == "_":
-            return "_", None
-        if stripped == "{}":
-            return "{}", None
-        if stripped == "[]":
-            return "[]", None
+        token = rest.split(None, 1)[0]
+        if token in ("_", "{}", "[]"):
+            if _strip_ws(rest[len(token):]) == "":
+                return token, None
+            _err("E08", "%s 后不能有载荷" % token, lineno)
         _err("E07", "未知的头符号：%r" % rest[:4], lineno)
 
     def _value(self, indent, head, payload, lineno):
@@ -242,6 +252,11 @@ class _Parser:
             if not nxt[2].startswith("|"):
                 _err("E10", "字符串的子层只能是文本行", nxt[0])
             return self._text_block(indent)
+        if head == "|":
+            nxt = self.peek()
+            if nxt is not None and nxt[1] > indent:
+                _err("E10", "| 不能带子层", nxt[0])
+            return payload
         if head == "_":
             nxt = self.peek()
             if nxt is not None and nxt[1] > indent:
@@ -253,8 +268,6 @@ class _Parser:
                 return {}
             if nxt[1] != indent + 2:
                 _err("E03", "缩进不是恰好多 2 格", nxt[0])
-            if nxt[2].startswith("|"):
-                _err("E08", "字典下不能有文本行", nxt[0])
             return self._map(indent + 2)
         if head == "[]":
             nxt = self.peek()
@@ -262,8 +275,6 @@ class _Parser:
                 return []
             if nxt[1] != indent + 2:
                 _err("E03", "缩进不是恰好多 2 格", nxt[0])
-            if nxt[2].startswith("|"):
-                _err("E08", "列表下不能有文本行", nxt[0])
             return self._list(indent + 2)
         _err("E07", "未知的头符号：%r" % head, lineno)
 
@@ -289,7 +300,7 @@ def _split_lines(text):
     raw_lines = body.split("\n") if body != "" else []
     lines = []
     for idx, raw in enumerate(raw_lines, start=1):
-        if raw.strip(" \t") == "":
+        if _strip_ws(raw) == "":
             _err("E01", "只含空白的行", idx)
         ind = _indent_of(raw, idx)
         lines.append((idx, ind, raw[ind:], raw))
@@ -339,8 +350,9 @@ def _plain_key_ok(key):
     return (
         key != ""
         and not any(c in key for c in ' \t"\n\r')
-        and key not in PLAIN_RESERVED
+        and key not in HEADS
         and not key.startswith("#")
+        and not key.startswith("|")
     )
 
 
@@ -353,13 +365,15 @@ def _encode_key(key):
 
 
 def _string_lines(s):
-    if s == "":
-        return ["-"]
-    if "\n" in s or s != s.rstrip(" \t\r"):
+    if "\n" in s:
         parts = ["-"]
         for line in s.split("\n"):
             parts.append("|" + line)
         return parts
+    if s == "":
+        return ["-"]
+    if s != _strip_ws(s):
+        return ["|" + s]
     return ["- " + s]
 
 
