@@ -62,7 +62,7 @@ STRINGS = [
     "", " ", "  x", "x  ", "a b", 'a"b', "a\\b", "a\nb", "x\n", "\n",
     "3", "007", "true", "null", "-", "_", "{}", "[]", "#x", "名字", "柚子",
     "line1\nline2\n", "tab\there", "a\r\nb", "x\r", "call - fake",
-    "\u00a0x", "x\u3000", "\u3000", "|x", "|",
+    "\u00a0x", "x\u3000", "\u3000", "|x", "|", "--LLF-END", "--LLF-END\n",
 ]
 
 
@@ -77,7 +77,7 @@ def random_value(rng, depth=0):
         return None
     if kind == "dict":
         return {
-            rng.choice(["key", "a b", 'q"q', "-", "_", "", "#h", "名字", "a\tb", "a\nb"]): random_value(rng, depth + 1)
+            rng.choice(["key", "a b", 'q"q', "-", "_", "", "#h", "名字", "a\tb", "a\nb", "--LLF-END"]): random_value(rng, depth + 1)
             for _ in range(rng.randint(0, 4))
         }
     return [random_value(rng, depth + 1) for _ in range(rng.randint(0, 4))]

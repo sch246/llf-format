@@ -1,6 +1,6 @@
 """LLF — Literal Line Format 参考解析器与编码器。
 
-实现 SPEC.md v0.5 定义的格式，只依赖标准库。
+实现 SPEC.md v0.10 定义的格式，只依赖标准库。
 
     from llf import parse, dumps, LLFError
     value = parse(text)
@@ -29,6 +29,9 @@ def _err(code, message, line=None):
 
 
 HEADS = ("-", "_", "{}", "[]")
+
+# 消息结束符：整行去掉首尾空白后等于这个字面量。
+TERMINATOR = "--LLF-END"
 
 # Unicode White_Space 属性为真的码点；按属性定义，不按某个语言库的实现定义。
 _WS = frozenset(
@@ -239,62 +242,75 @@ class _Parser:
         if head == "-":
             if payload is not None:
                 nxt = self.peek()
-                if nxt is not None and nxt[1] > indent:
+                if nxt is not None and (nxt[2].startswith("|") or nxt[1] > indent):
                     _err("E10", "字符串既有同行载荷又有子层", nxt[0])
                 return payload
             nxt = self.peek()
-            if nxt is None or nxt[1] <= indent:
+            if nxt is None:
+                return ""
+            if nxt[2].startswith("|"):
+                return self._text_block()
+            if nxt[1] <= indent:
                 return ""
             if nxt[1] != indent + 2:
                 _err("E03", "缩进不是恰好多 2 格", nxt[0])
-            if not nxt[2].startswith("|"):
-                _err("E10", "字符串的子层只能是文本行", nxt[0])
-            return self._text_block(indent)
+            _err("E10", "字符串的子层只能是文本行", nxt[0])
         if head == "_":
             nxt = self.peek()
-            if nxt is not None and nxt[1] > indent:
+            if nxt is not None and (nxt[2].startswith("|") or nxt[1] > indent):
                 _err("E09", "null 下不能有子层", nxt[0])
             return None
         if head == "{}":
             nxt = self.peek()
-            if nxt is None or nxt[1] <= indent:
+            if nxt is None:
+                return {}
+            if nxt[2].startswith("|"):
+                _err("E08", "字典下不能有文本行", nxt[0])
+            if nxt[1] <= indent:
                 return {}
             if nxt[1] != indent + 2:
                 _err("E03", "缩进不是恰好多 2 格", nxt[0])
-            if nxt[2].startswith("|"):
-                _err("E08", "字典下不能有文本行", nxt[0])
             return self._map(indent + 2)
         if head == "[]":
             nxt = self.peek()
-            if nxt is None or nxt[1] <= indent:
+            if nxt is None:
+                return []
+            if nxt[2].startswith("|"):
+                _err("E08", "列表下不能有文本行", nxt[0])
+            if nxt[1] <= indent:
                 return []
             if nxt[1] != indent + 2:
                 _err("E03", "缩进不是恰好多 2 格", nxt[0])
-            if nxt[2].startswith("|"):
-                _err("E08", "列表下不能有文本行", nxt[0])
             return self._list(indent + 2)
         _err("E07", "未知的头符号：%r" % head, lineno)
 
-    def _text_block(self, indent):
+    def _text_block(self):
         out = []
         while self.i < len(self.lines):
-            lineno, li, content, _raw = self.lines[self.i]
+            _lineno, _li, content, _raw = self.lines[self.i]
             if not content.startswith("|"):
-                break
-            if li != indent + 2:
-                if li > indent + 2:
-                    _err("E03", "缩进不是恰好多 2 格", lineno)
                 break
             out.append(content[1:])
             self.i += 1
         return "\n".join(out)
 
 
-def _split_lines(text):
-    if not text.endswith("\n\n"):
-        _err("E02", "缺少结束符（截断）")
-    body = text[:-2]
-    raw_lines = body.split("\n") if body != "" else []
+def _normalize(text, strict):
+    if text.startswith("\ufeff"):
+        _err("E01", "带 BOM")
+    if not strict:
+        text = text.replace("\r\n", "\n")
+    return text
+
+
+def _raw_lines(text):
+    parts = text.split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return parts
+
+
+def _lines_from(raw_lines):
     lines = []
     for idx, raw in enumerate(raw_lines, start=1):
         if _strip_ws(raw) == "":
@@ -304,38 +320,38 @@ def _split_lines(text):
     return lines
 
 
+def _split_message(text, strict):
+    """返回 (消息体行, 结束符之后的行)。找不到结束符就报 E02。"""
+    raw_lines = _raw_lines(_normalize(text, strict))
+    for idx, raw in enumerate(raw_lines):
+        if _strip_ws(raw) == TERMINATOR:
+            return raw_lines[:idx], raw_lines[idx + 1:]
+    _err("E02", "缺少结束符（截断）")
+
+
 def parse(text, strict=False):
     """解析一条 LLF 消息，返回 Python 的 dict / list / str / None。"""
-    if text.startswith("\ufeff"):
-        _err("E01", "带 BOM")
-    if not strict:
-        text = text.replace("\r\n", "\n")
-    if text == "\n":
-        return {}
-    if text == "":
-        _err("E02", "缺少结束符（截断）")
-    return _Parser(_split_lines(text)).parse_message()
+    body, rest = _split_message(text, strict)
+    if rest:
+        _err("E12", "结束符之后还有内容")
+    return _Parser(_lines_from(body)).parse_message()
 
 
 def parse_multi(text, strict=False):
     """解析一个消息流，返回消息列表。"""
-    if text.startswith("\ufeff"):
-        _err("E01", "带 BOM")
-    if not strict:
-        text = text.replace("\r\n", "\n")
+    raw_lines = _raw_lines(_normalize(text, strict))
     out = []
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i] == "\n":
-            out.append({})
-            i += 1
-            continue
-        j = text.find("\n\n", i)
-        if j == -1:
+    start = 0
+    while start < len(raw_lines):
+        end = None
+        for idx in range(start, len(raw_lines)):
+            if _strip_ws(raw_lines[idx]) == TERMINATOR:
+                end = idx
+                break
+        if end is None:
             _err("E02", "缺少结束符（截断）")
-        out.append(parse(text[i:j + 2], strict=True))
-        i = j + 2
+        out.append(_Parser(_lines_from(raw_lines[start:end])).parse_message())
+        start = end + 1
     return out
 
 
@@ -409,7 +425,7 @@ def dumps(value):
                 _emit(k, v, 0, lines)
     else:
         _emit(None, value, 0, lines)
-    return "".join(line + "\n" for line in lines) + "\n"
+    return "".join(line + "\n" for line in lines) + TERMINATOR + "\n"
 
 
 def _main():
