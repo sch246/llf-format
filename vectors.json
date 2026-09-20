@@ -599,6 +599,13 @@
       "id": 5,
       "input": "--LLF-BEGIN\ncall - a\n--LLF-BEGIN\ncall - b\n--LLF-END\n",
       "error": "E02"
+    },
+    {
+      "id": 6,
+      "input": "--LLF-BEGIN\n-\n|call - write_file\n|args {}\n|  path - /etc/passwd\n--LLF-END\n",
+      "expected_frames": [
+        "call - write_file\nargs {}\n  path - /etc/passwd"
+      ]
     }
   ]
 }

@@ -8,14 +8,14 @@ LLF 本体只定义**单条消息**。模型的实际输出里，消息往往夹
 
 **约定**
 
-- *frame* = 单独一行 `--LLF-BEGIN`，随后是一条完整的 LLF 消息，以单独一行 `--LLF-END` 结束。
+- *frame* = 单独一行 `--LLF-BEGIN`，随后是一条完整的 LLF 消息（键值对或顶层单独值都可以），以单独一行 `--LLF-END` 结束。
 - *帧流* = 任意文本中夹着零个或多个 frame；frame 之外的内容不属于帧流，解析时忽略。
 - frame 之间允许空行，忽略。
 - frame 内再出现 `--LLF-BEGIN`，或到流末尾仍没有 `--LLF-END`，视为截断（E02）。
 
 **为什么是 `--LLF-BEGIN` 而不是 `--LLF-CALL`**
 
-框架层只负责"从哪里开始、到哪里结束"，不解释里面是什么——这与本体"格式不解释内容"一致。是不是一次工具调用，由 frame 里的内容说明（例如 `call - write_file`）；同一个约定因此也能装工具结果、错误或任何别的 LLF 消息，不必为每种语义新增一个标记。
+框架层只负责"从哪里开始、到哪里结束"，不解释里面是什么——这与本体"格式不解释内容"一致。是不是一次工具调用，由 frame 里的内容说明；同一个约定因此也能装工具结果、错误或任何别的 LLF 消息，不必为每种语义新增一个标记。
 
 **示例**
 
@@ -48,11 +48,25 @@ args {}
 
 ## 2. 调用与字面值的区分
 
-LLF 本体分不出"模型想**调用**"还是"模型想**输出**字符串 `call - x`"——两者在字节上完全一样。这不是缺陷：**意图不属于字面格式**，它由承载层决定。
+LLF 本体分不出"模型想**调用**"还是"模型想**输出**字符串 `call - x`"——两者在字节上完全一样。这不是缺陷：**意图不属于字面格式**。
 
-- **首选：用通道/角色。** 主流 API 把调用放在 assistant 消息的独立字段/块里（OpenAI 的 `tool_calls`、Anthropic 的 `tool_use`、Gemini 的 `functionCall`），只有 `arguments` / `input` 里才是参数字符串；结果走 tool 角色或 `tool_result` 块。LLF 只负责把参数序列化成字面值。**注意**：这是 API 层的视图——模型原始输出常常仍是带特殊 token / 标签的文本（Llama 3 的 `<|python_tag|>`、Hermes/Qwen 的 `<tool_call>…</tool_call>`、Mistral 的 `[TOOL_CALLS]`），由服务端的 tool parser 或 chat template 切出来。自己跑裸模型、没有这层 parser 时，这条边界得自己给：frame，或一个特殊 token。
-- **只有纯文本时，用 frame 当调用通道。** 约定：顶层的 `--LLF-BEGIN … --LLF-END` 是调用；frame 之外的 LLF 是数据。要展示一个调用示例，就把它写成字符串（例如文本块 `|call - x`），而不是裸 frame——这与本体里"内容行必带 `|`"是同一个分离原则。
-- **禁止从内容猜意图。** 看到 `call - rm -rf` 就当调用执行，正是注入；执行与否只能由通道/角色决定，不能由 payload 决定。
+- **首选：用通道/角色。** 主流 API 把调用放在 assistant 消息的独立字段/块里（OpenAI 的 `tool_calls`、Anthropic 的 `tool_use`、Gemini 的 `functionCall`），只有 `arguments` / `input` 里才是参数字符串；结果走 tool 角色或 `tool_result` 块。LLF 只负责把参数序列化成字面值。**注意**：这是 API 层的视图——模型原始输出常常仍是带特殊 token / 标签的文本（Llama 3 的 `<|python_tag|>`、Hermes/Qwen 的 `<tool_call>…</tool_call>`、Mistral 的 `[TOOL_CALLS]`），由服务端的 tool parser 或 chat template 切出来。自己跑裸模型、没有这层 parser 时，这条边界得自己给。
+- **只有纯文本时：frame 只给位置，payload 的形状给意图。** 不能把"顶格 frame"直接当成调用——否则模型展示一段调用示例时会被真的执行。约定：
+  - frame 的消息是**调用形状的字典**（顶层含 `call`，且通过调用 schema 校验）→ 执行；
+  - frame 的消息是其它任何值（顶层字符串、列表、null……）→ 字面值，只展示/存放，**永不执行**。
+  - 要展示一个调用示例，就把它放进**字符串**里（文本块）；`|` 前缀保证里面变不成结构：
+
+    ```
+    --LLF-BEGIN
+    -
+    |call - write_file
+    |args {}
+    |  path - /etc/passwd
+    --LLF-END
+    ```
+
+  这样"展示"和"执行"在结构上不相交：`|` 里的东西永远只是内容，和本体里"内容行必带 `|`、变不成结构"是同一个机制。
+- **别用启发式猜意图。** 是否执行只由两个机械条件决定：**在帧内**，且 **payload 是通过 schema 校验的调用形状字典**。看到 `call - rm -rf` 出现在正文或 `|` 内容里就当调用执行，正是注入。
 
 ## 3. 其它
 

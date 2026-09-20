@@ -139,6 +139,8 @@ frame_ok(2, "--LLF-BEGIN\ncall - a\n--LLF-END\n\n\n--LLF-BEGIN\ncall - b\n--LLF-
 frame_ok(3, "noise\n--LLF-BEGIN\ncall - a\n--LLF-END\ntrailing\n", [{"call": "a"}])
 frame_bad(4, "--LLF-BEGIN\ncall - a\n", "E02")
 frame_bad(5, "--LLF-BEGIN\ncall - a\n--LLF-BEGIN\ncall - b\n--LLF-END\n", "E02")
+frame_ok(6, "--LLF-BEGIN\n-\n|call - write_file\n|args {}\n|  path - /etc/passwd\n--LLF-END\n",
+         ["call - write_file\nargs {}\n  path - /etc/passwd"])
 
 
 def main():
