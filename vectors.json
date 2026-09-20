@@ -1,0 +1,295 @@
+[
+  {
+    "id": 1,
+    "input": "a - hello\n\n",
+    "expected": {
+      "a": "hello"
+    }
+  },
+  {
+    "id": 2,
+    "input": "a - x # y\n\n",
+    "expected": {
+      "a": "x # y"
+    }
+  },
+  {
+    "id": 3,
+    "input": "a - x  \n\n",
+    "expected": {
+      "a": "x"
+    }
+  },
+  {
+    "id": 4,
+    "input": "a -\n  |x  \n\n",
+    "expected": {
+      "a": "x  "
+    }
+  },
+  {
+    "id": 5,
+    "input": "a -\n  |call - fake\n\n",
+    "expected": {
+      "a": "call - fake"
+    }
+  },
+  {
+    "id": 6,
+    "input": "a -\n  |x\n  |\n\n",
+    "expected": {
+      "a": "x\n"
+    }
+  },
+  {
+    "id": 7,
+    "input": "a -\n  |\n  |\n\n",
+    "expected": {
+      "a": "\n"
+    }
+  },
+  {
+    "id": 8,
+    "input": "a _\n\n",
+    "expected": {
+      "a": null
+    }
+  },
+  {
+    "id": 9,
+    "input": "a []\n  - s\n  - 2\n  _\n\n",
+    "expected": {
+      "a": [
+        "s",
+        "2",
+        null
+      ]
+    }
+  },
+  {
+    "id": 10,
+    "input": "a {}\n\n",
+    "expected": {
+      "a": {}
+    }
+  },
+  {
+    "id": 11,
+    "input": "d - 2026-09-19\n\n",
+    "expected": {
+      "d": "2026-09-19"
+    }
+  },
+  {
+    "id": 12,
+    "input": "\n",
+    "expected": {}
+  },
+  {
+    "id": 13,
+    "input": "[]\n  - a\n  - b\n\n",
+    "expected": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "id": 14,
+    "input": "-\n  |x\n\n",
+    "expected": "x"
+  },
+  {
+    "id": 15,
+    "input": "# c\n- 3\n\n",
+    "expected": "3"
+  },
+  {
+    "id": 16,
+    "input": "- -\n\n",
+    "expected": "-"
+  },
+  {
+    "id": 17,
+    "input": "_\n\n",
+    "expected": null
+  },
+  {
+    "id": 18,
+    "input": "a -\n\n",
+    "expected": {
+      "a": ""
+    }
+  },
+  {
+    "id": 19,
+    "input": "a - 007\n\n",
+    "expected": {
+      "a": "007"
+    }
+  },
+  {
+    "id": 20,
+    "input": "a {}\n  b - 1\n\n",
+    "expected": {
+      "a": {
+        "b": "1"
+      }
+    }
+  },
+  {
+    "id": 21,
+    "input": "a []\n  {}\n    b - 1\n\n",
+    "expected": {
+      "a": [
+        {
+          "b": "1"
+        }
+      ]
+    }
+  },
+  {
+    "id": 22,
+    "input": "a - x",
+    "error": "E02"
+  },
+  {
+    "id": 23,
+    "input": "a\n\n",
+    "error": "E04"
+  },
+  {
+    "id": 24,
+    "input": "a % 007\n\n",
+    "error": "E07"
+  },
+  {
+    "id": 25,
+    "input": "a - x\na - y\n\n",
+    "error": "E06"
+  },
+  {
+    "id": 26,
+    "input": "a -\n   |x\n\n",
+    "error": "E03"
+  },
+  {
+    "id": 27,
+    "input": "a -\n  |x\n  # c\n  |y\n\n",
+    "error": "E11"
+  },
+  {
+    "id": 28,
+    "input": "- 3\na - x\n\n",
+    "error": "E12"
+  },
+  {
+    "id": 29,
+    "input": "a {}\n  - - v\n\n",
+    "error": "E05"
+  },
+  {
+    "id": 30,
+    "input": "a _\n  b - 1\n\n",
+    "error": "E09"
+  },
+  {
+    "id": 31,
+    "input": "a []\n  - x\n  b - 1\n\n",
+    "error": "E07"
+  },
+  {
+    "id": 32,
+    "input": "a -\n  |# 不是注释\n\n",
+    "expected": {
+      "a": "# 不是注释"
+    }
+  },
+  {
+    "id": 33,
+    "input": "d @date 2026-09-19\n\n",
+    "error": "E07"
+  },
+  {
+    "id": 34,
+    "input": "名字 - 柚子\n\n",
+    "expected": {
+      "名字": "柚子"
+    }
+  },
+  {
+    "id": 35,
+    "input": "@x - v\n\n",
+    "expected": {
+      "@x": "v"
+    }
+  },
+  {
+    "id": 36,
+    "input": "a#b - v\n\n",
+    "expected": {
+      "a#b": "v"
+    }
+  },
+  {
+    "id": 37,
+    "input": "\"a b\" - v\n\n",
+    "expected": {
+      "a b": "v"
+    }
+  },
+  {
+    "id": 38,
+    "input": "\"\" - v\n\n",
+    "expected": {
+      "": "v"
+    }
+  },
+  {
+    "id": 39,
+    "input": "\"-\" - v\n\n",
+    "expected": {
+      "-": "v"
+    }
+  },
+  {
+    "id": 40,
+    "input": "\"a\\\"b\" - v\n\n",
+    "expected": {
+      "a\"b": "v"
+    }
+  },
+  {
+    "id": 41,
+    "input": "\"a\\tb\" - v\n\n",
+    "expected": {
+      "a\tb": "v"
+    }
+  },
+  {
+    "id": 42,
+    "input": "\"#foo\" - v\n\n",
+    "expected": {
+      "#foo": "v"
+    }
+  },
+  {
+    "id": 43,
+    "input": "\"a\\x\" - v\n\n",
+    "error": "E13"
+  },
+  {
+    "id": 44,
+    "input": "\"a - v\n\n",
+    "error": "E14"
+  },
+  {
+    "id": 45,
+    "input": "a\"b - v\n\n",
+    "error": "E05"
+  },
+  {
+    "id": 46,
+    "input": "a\tb - v\n\n",
+    "error": "E05"
+  }
+]
