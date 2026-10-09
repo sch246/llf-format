@@ -101,8 +101,20 @@ def _indent_of(raw, lineno):
     return n
 
 
+def _rstrip_ws(s):
+    j = len(s)
+    while j > 0 and ord(s[j - 1]) in _WS:
+        j -= 1
+    return s[:j]
+
+
+def _head_token(rest):
+    """行内第一个以 U+0020 分隔的 token；头之后直到行尾只有空白时，去掉这段空白。"""
+    return _rstrip_ws(rest.split(" ", 1)[0])
+
+
 def _starts_with_head(content):
-    return content.split(" ", 1)[0] in HEADS
+    return _head_token(content) in HEADS
 
 
 def _classify(content):
@@ -244,6 +256,8 @@ class _Parser:
                     out.append(ch)
                 else:
                     _err("E13", "非法转义 \\%s" % e, lineno)
+            elif ord(c) < 0x20:
+                _err("E13", "引号键里的控制字符必须转义（同 JSON）：U+%04X" % ord(c), lineno)
             else:
                 out.append(c)
                 i += 1
@@ -286,7 +300,7 @@ class _Parser:
         return value if tag is None else Tagged(tag, value)
 
     def _head(self, rest, lineno):
-        token = rest.split(" ", 1)[0]
+        token = _head_token(rest)
         if token not in HEADS:
             _err("E07", "未知的头符号：%r" % rest[:4], lineno)
         payload = rest[len(token):]
@@ -304,11 +318,14 @@ class _Parser:
                 if nxt is not None and (nxt[2].startswith("|") or nxt[1] > indent):
                     _err("E10", "字符串既有同行载荷又有子层", nxt[0])
                 return payload
+            # 文本块必须紧跟 `-` 行：中间夹注释时不开始文本块，后面的 `|` 行报 E11。
+            if self.i < len(self.lines) and self.lines[self.i][2].startswith("|"):
+                return self._text_block()
             nxt = self.peek()
             if nxt is None:
                 return ""
             if nxt[2].startswith("|"):
-                return self._text_block()
+                _err("E11", "文本块必须紧跟 - 行，中间不能有注释", nxt[0])
             if nxt[1] <= indent:
                 return ""
             if nxt[1] != indent + 2:
@@ -462,6 +479,64 @@ def _plain_key_ok(key):
 
 def _tag_ok(tag):
     return tag != "" and not any(ord(c) in _WS for c in tag) and '"' not in tag
+
+
+# 扩展（见 EXTENSIONS.md 第 4 节）：标签表达式里有特殊含义的字符。
+_TAG_EXPR_PUNCT = frozenset("<>(),")
+
+
+def parse_tag_expr(name):
+    """把标签名读成 {"name", "types", "args"}（标签表达式约定，见 EXTENSIONS.md 第 4 节）。
+
+    这是注册表层的约定，不是格式的一部分：表达式写错抛 ValueError，不抛 LLFError。
+    """
+    if not isinstance(name, str) or not _tag_ok(name):
+        raise ValueError("不是合法的标签名：%r" % (name,))
+    expr, i = _tag_expr(name, 0)
+    if i != len(name):
+        raise ValueError("标签表达式在第 %d 个字符之后还有内容：%r" % (i, name))
+    return expr
+
+
+def _tag_atom_end(s, i):
+    while i < len(s) and s[i] not in _TAG_EXPR_PUNCT:
+        i += 1
+    return i
+
+
+def _tag_expr(s, i):
+    j = _tag_atom_end(s, i)
+    if j == i:
+        raise ValueError("标签表达式缺少名字：%r" % s)
+    node = {"name": s[i:j], "types": [], "args": []}
+    i = j
+    if i < len(s) and s[i] == "<":
+        while True:
+            sub, i = _tag_expr(s, i + 1)
+            node["types"].append(sub)
+            if i < len(s) and s[i] == ",":
+                continue
+            if i < len(s) and s[i] == ">":
+                i += 1
+                break
+            raise ValueError("类型参数缺少 >：%r" % s)
+    if i < len(s) and s[i] == "(":
+        i += 1
+        if i < len(s) and s[i] == ")":
+            return node, i + 1
+        while True:
+            j = _tag_atom_end(s, i)
+            if j == i:
+                raise ValueError("值参数为空：%r" % s)
+            node["args"].append(s[i:j])
+            i = j
+            if i < len(s) and s[i] == ",":
+                i += 1
+                continue
+            if i < len(s) and s[i] == ")":
+                return node, i + 1
+            raise ValueError("值参数缺少 )：%r" % s)
+    return node, i
 
 
 def _encode_key(key):

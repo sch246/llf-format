@@ -31,7 +31,7 @@ PLAIN_START1 = "[^" + SPACE + TAB + LF + CR + QUOTE + HASH + PIPE + DASH + UNDER
 PLAIN_START2 = "[^" + SPACE + TAB + LF + CR + QUOTE + HASH + PIPE + LBRACE + LBRACKET + "]"
 LEN2_BRACE = "[^" + SPACE + TAB + LF + CR + QUOTE + RBRACE + "]"
 LEN2_BRACKET = "[^" + SPACE + TAB + LF + CR + QUOTE + RBRACKET + "]"
-QCHAR = "[^" + QUOTE + BSLASH + "]"
+QCHAR = "[^" + QUOTE + BSLASH + r"\x00-\x1F" + "]"  # 同 JSON：控制字符必须转义
 
 # ---- Lark 片段（Python re；每个正则都非零宽）----
 L_PLAIN_CHAR = r'[^\x20\t\n\r"]'
@@ -40,7 +40,7 @@ L_PLAIN_START1 = r'[^\x20\t\n\r"#|\-_]'
 L_PLAIN_START2 = r'[^\x20\t\n\r"#|{\[]'
 L_LEN2_BRACE = r'[^\x20\t\n\r"}]'
 L_LEN2_BRACKET = r'[^\x20\t\n\r"\]]'
-L_QCHAR = r'[^"\\]'
+L_QCHAR = r'[^"\\\x00-\x1f]'
 L_BSLASH = r'\\'
 L_ESC = r'["\\\/bfnrt]'
 L_NL = r'\n'

@@ -287,7 +287,8 @@ def main():
     for value, text in fails[:5]:
         print("  REJECT value=%r text=%r" % (value, text))
 
-    rejects = ["a - v\n", "a {}\n b - 1\n--LLF-END\n", "a -\tvalue\n--LLF-END\n", "--LLF-END\nEXTRA"]
+    rejects = ["a - v\n", "a {}\n b - 1\n--LLF-END\n", "a -\tvalue\n--LLF-END\n", "--LLF-END\nEXTRA",
+               '"a\tb" - v\n--LLF-END\n', '"a\nb" - v\n--LLF-END\n']
     bad = [s for s in rejects if Matcher(rules, s).accepts(s)]
     print("invalid strings accepted (should be 0): %d" % len(bad))
     for s in bad:

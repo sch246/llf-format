@@ -36,7 +36,7 @@ v0.11 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版�
 ## 参考实现
 
 - [llf.py](llf.py)：纯标准库的解析器与编码器；`python3 llf.py < message.llf` 可直接试。
-- [vectors.json](vectors.json)：81 条机器可读测试向量 + 2 条严格模式用例（输入字节 + 期望值或错误码），另有帧流与类型标签两个扩展的向量。
+- [vectors.json](vectors.json)：90 条机器可读测试向量 + 3 条严格模式用例（输入字节 + 期望值或错误码），另有帧流、类型标签与标签表达式三个扩展的向量。
 - [tests/test_llf.py](tests/test_llf.py)：跑向量，并做 2000 组定长词汇 + 5000 组随机字节的 `decode(encode(x)) == x` 往返 fuzz，`python3 tests/test_llf.py`。
 - [tools/build_vectors.py](tools/build_vectors.py)：从 Python 字面量重新生成 `vectors.json`。
 - [tools/check_docs.py](tools/check_docs.py)：检查 Markdown 表格列数一致，防止单元格里的 `|` 把表切坏。
@@ -45,7 +45,7 @@ v0.11 草案，欢迎讨论。完整规范见 [SPEC.md](SPEC.md)；命名与版�
 - [tools/build_grammars.py](tools/build_grammars.py)：重新生成两份语法，`python3 tools/build_grammars.py`。
 - [tools/check_grammar.py](tools/check_grammar.py)：用一个小型 GBNF 识别器验证 GBNF，无需第三方依赖。
 - [tools/check_lark.py](tools/check_lark.py)：用真正的 Lark 验证 Lark 语法，需 `pip install lark`；没装就跳过。
-- [EXTENSIONS.md](EXTENSIONS.md)：不属于本体的可选约定；当前有帧流 `--LLF-BEGIN` … `--LLF-END`（`llf.parse_frames`），以及给配置映射到 UI 用的类型标签 `!tag`（`llf.parse(..., tags=True)`）。
+- [EXTENSIONS.md](EXTENSIONS.md)：不属于本体的可选约定；当前有帧流 `--LLF-BEGIN` … `--LLF-END`（`llf.parse_frames`），给配置映射到 UI 用的类型标签 `!tag`（`llf.parse(..., tags=True)`），以及在注册表层给标签加参数与泛型的标签表达式约定（`!range(0,1)`、`!list<color>`，可选，`llf.parse_tag_expr`）。
 
 语法保证结构缩进、头、文本块与 `--LLF-END` 的合法性；它**不**校验键是否符合调用方的 schema，也不含注释与多消息流。
 

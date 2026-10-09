@@ -76,5 +76,5 @@ plain_char: /[^\x20\t\n\r"]/
 plain_start: /[^\x20\t\n\r"#|]/
 plain_start2: /[^\x20\t\n\r"#|{\[]/
 quoted_key: /"/ qchar* /"/
-qchar: /[^"\\]/ | /\\/ /["\\\/bfnrt]/ | /\\/ "u" hex hex hex hex
+qchar: /[^"\\\x00-\x1f]/ | /\\/ /["\\\/bfnrt]/ | /\\/ "u" hex hex hex hex
 hex: /[0-9a-fA-F]/

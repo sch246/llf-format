@@ -1,10 +1,12 @@
 """从 Python 字面量生成 vectors.json，避免手抄转义出错。
 
 vectors.json 的形态：
-    {"vectors": [...], "strict_vectors": [...], "frame_vectors": [...], "tag_vectors": [...]}
-vectors 用默认（宽松）模式解析，strict_vectors 用严格模式；后两组属于扩展（见 EXTENSIONS.md）。
+    {"vectors": [...], "strict_vectors": [...], "frame_vectors": [...], "tag_vectors": [...],
+     "tag_expr_vectors": [...]}
+vectors 用默认（宽松）模式解析，strict_vectors 用严格模式；后三组属于扩展（见 EXTENSIONS.md）。
 tag_vectors 默认以 tags=True 解析，带 "tags": false 的条目验证不启用扩展时的行为；
 期望值里的标签写成 {"$tag": 名字, "$value": 值}。
+tag_expr_vectors 是交给 llf.parse_tag_expr 的标签名，期望结构或 "invalid": true。
 
     python3 tools/build_vectors.py
 """
@@ -16,6 +18,7 @@ DEFAULT = []
 STRICT = []
 FRAMES = []
 TAGS = []
+TAG_EXPRS = []
 
 
 def ok(i, text, expected):
@@ -145,13 +148,26 @@ ok(74, '"\u3000" - v' + END, {"\u3000": "v"})
 bad(75, "k\u00a0 - v" + END, "E05")
 ok(76, '"k\u00a0" - v' + END, {"k\u00a0": "v"})
 bad(77, "k\u000b - v" + END, "E05")
-ok(78, '"k\u000b" - v' + END, {"k\u000b": "v"})
+ok(78, '"k\\u000b" - v' + END, {"k\u000b": "v"})
 ok(79, "k\u001c - v" + END, {"k\u001c": "v"})
 ok_multi(80, "a - 1" + END + "\n" + "a - 2" + END, [{"a": "1"}, {"a": "2"}])
 ok_multi(81, "\n\n" + "a - 1" + END + "a - 2" + END, [{"a": "1"}, {"a": "2"}])
+# 文本块必须紧跟 - 行；引号键里的控制字符可以原样出现。
+bad(82, "a -\n  # c\n  |x" + END, "E11")
+bad(83, "-\n# c\n|x" + END, "E11")
+bad(84, '"a\tb" - v' + END, "E13")
+bad(85, '"a\u0001" - v' + END, "E13")
+# 头之后的行尾空白可以是任意 White_Space；行内分词仍只认 U+0020。
+ok(86, "a {}\t" + END, {"a": {}})
+ok(87, "a []\t\n  _\t" + END, {"a": [None]})
+ok(88, "a -\t\n  |x" + END, {"a": "x"})
+bad(89, "a -\tvalue" + END, "E07")
+bad(90, "a {}\tx" + END, "E07")
 
 strict_ok("S1", "a -\n  |x\r\n--LLF-END\n", {"a": "x\r"})
 strict_ok("S2", "a - x\r\n--LLF-END\n", {"a": "x"})
+strict_ok("S3", "a {}\r\n  b -\r\n    |x\r\n    |y\r\n  c _\r\n--LLF-END\r\n",
+          {"a": {"b": "x\r\ny\r", "c": None}})
 
 # 扩展：--LLF-BEGIN ... --LLF-END 帧流（见 EXTENSIONS.md）。
 frame_ok(1, "--LLF-BEGIN\ncall - write_file\nid - c1\n--LLF-END\n--LLF-BEGIN\ncall - read_file\nid - c2\n--LLF-END\n",
@@ -192,15 +208,50 @@ tag_bad(21, "p []\n  !color - #fff" + END, "E15", tags=False)
 tag_ok(22, "!color - #fff" + END, {"!color": "#fff"}, tags=False)
 
 
+def expr(name, types=(), args=()):
+    return {"name": name, "types": list(types), "args": list(args)}
+
+
+def expr_ok(i, name, expected):
+    TAG_EXPRS.append({"id": i, "input": name, "expected": expected})
+
+
+def expr_bad(i, name):
+    TAG_EXPRS.append({"id": i, "input": name, "invalid": True})
+
+
+# 扩展：标签表达式（见 EXTENSIONS.md 第 4 节）。它不是格式的一部分，错误不带错误码。
+expr_ok(1, "color", expr("color"))
+expr_ok(2, "range(0,1,0.01)", expr("range", args=["0", "1", "0.01"]))
+expr_ok(3, "list<color>", expr("list", [expr("color")]))
+expr_ok(4, "list<color>(1,8)", expr("list", [expr("color")], ["1", "8"]))
+expr_ok(5, "map<range(0,1)>", expr("map", [expr("range", args=["0", "1"])]))
+expr_ok(6, "list<map<int>>", expr("list", [expr("map", [expr("int")])]))
+expr_ok(7, "pair<int,color>", expr("pair", [expr("int"), expr("color")]))
+expr_ok(8, "choice(log,sqrt,linear)", expr("choice", args=["log", "sqrt", "linear"]))
+expr_ok(9, "now()", expr("now"))
+expr_ok(10, "!int", expr("!int"))
+expr_ok(11, "名字(甲,乙)", expr("名字", args=["甲", "乙"]))
+expr_ok(12, "range(-1,1e3)", expr("range", args=["-1", "1e3"]))
+expr_ok(13, "ui.color:rgb", expr("ui.color:rgb"))
+for _i, _name in enumerate([
+    "list<>", "list<color", "list<a,>", "<a>", "(1)", "a>b", "a)",
+    "choice(a,,b)", "choice(,a)", "choice(a,b", "a(1)x", "a(1)<b>", "list<a(1)b>",
+    "", "a b", 'a"b',
+], start=14):
+    expr_bad(_i, _name)
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     target = os.path.join(here, "..", "vectors.json")
-    payload = {"vectors": DEFAULT, "strict_vectors": STRICT, "frame_vectors": FRAMES, "tag_vectors": TAGS}
+    payload = {"vectors": DEFAULT, "strict_vectors": STRICT, "frame_vectors": FRAMES, "tag_vectors": TAGS,
+               "tag_expr_vectors": TAG_EXPRS}
     with open(target, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
-    print("wrote %d vectors + %d strict vectors + %d frame vectors + %d tag vectors to %s"
-          % (len(DEFAULT), len(STRICT), len(FRAMES), len(TAGS), os.path.normpath(target)))
+    print("wrote %d vectors + %d strict vectors + %d frame vectors + %d tag vectors + %d tag expr vectors to %s"
+          % (len(DEFAULT), len(STRICT), len(FRAMES), len(TAGS), len(TAG_EXPRS), os.path.normpath(target)))
 
 
 if __name__ == "__main__":
