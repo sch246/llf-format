@@ -464,6 +464,64 @@ def _tag_ok(tag):
     return tag != "" and not any(ord(c) in _WS for c in tag) and '"' not in tag
 
 
+# 扩展（见 EXTENSIONS.md 第 4 节）：标签表达式里有特殊含义的字符。
+_TAG_EXPR_PUNCT = frozenset("<>(),")
+
+
+def parse_tag_expr(name):
+    """把标签名读成 {"name", "types", "args"}（标签表达式约定，见 EXTENSIONS.md 第 4 节）。
+
+    这是注册表层的约定，不是格式的一部分：表达式写错抛 ValueError，不抛 LLFError。
+    """
+    if not isinstance(name, str) or not _tag_ok(name):
+        raise ValueError("不是合法的标签名：%r" % (name,))
+    expr, i = _tag_expr(name, 0)
+    if i != len(name):
+        raise ValueError("标签表达式在第 %d 个字符之后还有内容：%r" % (i, name))
+    return expr
+
+
+def _tag_atom_end(s, i):
+    while i < len(s) and s[i] not in _TAG_EXPR_PUNCT:
+        i += 1
+    return i
+
+
+def _tag_expr(s, i):
+    j = _tag_atom_end(s, i)
+    if j == i:
+        raise ValueError("标签表达式缺少名字：%r" % s)
+    node = {"name": s[i:j], "types": [], "args": []}
+    i = j
+    if i < len(s) and s[i] == "<":
+        while True:
+            sub, i = _tag_expr(s, i + 1)
+            node["types"].append(sub)
+            if i < len(s) and s[i] == ",":
+                continue
+            if i < len(s) and s[i] == ">":
+                i += 1
+                break
+            raise ValueError("类型参数缺少 >：%r" % s)
+    if i < len(s) and s[i] == "(":
+        i += 1
+        if i < len(s) and s[i] == ")":
+            return node, i + 1
+        while True:
+            j = _tag_atom_end(s, i)
+            if j == i:
+                raise ValueError("值参数为空：%r" % s)
+            node["args"].append(s[i:j])
+            i = j
+            if i < len(s) and s[i] == ",":
+                i += 1
+                continue
+            if i < len(s) and s[i] == ")":
+                return node, i + 1
+            raise ValueError("值参数缺少 )：%r" % s)
+    return node, i
+
+
 def _encode_key(key):
     if not isinstance(key, str):
         raise TypeError("键必须是字符串")

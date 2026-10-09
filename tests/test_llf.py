@@ -73,6 +73,21 @@ def check_tags(v, strict):
     return None
 
 
+def check_tag_expr(v, strict):
+    del strict
+    try:
+        got = llf.parse_tag_expr(v["input"])
+    except ValueError:
+        if v.get("invalid"):
+            return None
+        return "期望 %r，实际抛 ValueError" % (v["expected"],)
+    if v.get("invalid"):
+        return "期望表达式错误，实际解析成 %r" % (got,)
+    if got != v["expected"]:
+        return "期望 %r，实际 %r" % (v["expected"], got)
+    return None
+
+
 def run_vectors():
     data = load_vectors()
     failures = []
@@ -82,6 +97,7 @@ def run_vectors():
         ("strict_vectors", True, check_one),
         ("frame_vectors", False, check_frames),
         ("tag_vectors", False, check_tags),
+        ("tag_expr_vectors", False, check_tag_expr),
     ):
         items = data[key]
         counts.append(len(items))
@@ -234,7 +250,7 @@ def main():
             print("  " + item)
         return 1
     print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + %d 条帧流向量 + %d 条类型标签向量"
-          " + 2000 组定长词汇 fuzz + 5000 组随机字节 fuzz + 2000 组类型标签 fuzz"
+          " + %d 条标签表达式向量 + 2000 组定长词汇 fuzz + 5000 组随机字节 fuzz + 2000 组类型标签 fuzz"
           % tuple(counts))
     return 0
 
