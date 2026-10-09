@@ -20,17 +20,17 @@ def load_vectors():
         return json.load(fh)
 
 
-def check_one(v, strict):
+def check_one(v, strict, tags=False):
     if "expected_multi" in v:
         try:
-            got = llf.parse_multi(v["input"], strict=strict)
+            got = llf.parse_multi(v["input"], strict=strict, tags=tags)
         except llf.LLFError as error:
             return "期望多条消息，实际抛 %s" % error.code
         if got != v["expected_multi"]:
             return "期望 %r，实际 %r" % (v["expected_multi"], got)
         return None
     try:
-        got = llf.parse(v["input"], strict=strict)
+        got = llf.parse(v["input"], strict=strict, tags=tags)
     except llf.LLFError as error:
         if v.get("error") == error.code:
             return None
@@ -58,6 +58,21 @@ def check_frames(v, strict):
     return None
 
 
+def check_tags(v, strict):
+    tags = v.get("tags", True)
+    try:
+        got = llf.to_json_value(llf.parse(v["input"], strict=strict, tags=tags))
+    except llf.LLFError as error:
+        if v.get("error") == error.code:
+            return None
+        return "期望错误 %s，实际抛 %s" % (v.get("error"), error.code)
+    if "error" in v:
+        return "期望错误 %s，实际解析成 %r" % (v["error"], got)
+    if got != v["expected"]:
+        return "期望 %r，实际 %r" % (v["expected"], got)
+    return None
+
+
 def run_vectors():
     data = load_vectors()
     failures = []
@@ -66,6 +81,7 @@ def run_vectors():
         ("vectors", False, check_one),
         ("strict_vectors", True, check_one),
         ("frame_vectors", False, check_frames),
+        ("tag_vectors", False, check_tags),
     ):
         items = data[key]
         counts.append(len(items))
@@ -73,6 +89,12 @@ def run_vectors():
             message = check(v, strict)
             if message:
                 failures.append("%s %s: %s" % (key, v["id"], message))
+    # 类型标签扩展只占用本体里的非法写法：本体向量在 tags=True 下结果必须完全相同。
+    for key, strict in (("vectors", False), ("strict_vectors", True)):
+        for v in data[key]:
+            message = check_one(v, strict, tags=True)
+            if message:
+                failures.append("%s %s (tags=True): %s" % (key, v["id"], message))
     return failures, counts
 
 
@@ -166,17 +188,54 @@ def run_byte_fuzz(count=5000, seed=20260921):
     return failures
 
 
+TAG_NAMES = ["color", "int", "!x", "名字", "a-b", "-", "_", "{}", "|"]
+
+
+def random_tagged_value(rng, depth=0):
+    value = random_byte_value(rng, depth)
+    if isinstance(value, dict):
+        value = {k: random_tagged_value(rng, depth + 1) for k in value}
+    elif isinstance(value, list):
+        value = [random_tagged_value(rng, depth + 1) for _ in value]
+    if depth > 0 and rng.random() < 0.4:
+        value = llf.Tagged(rng.choice(TAG_NAMES), value)
+    return value
+
+
+def run_tag_fuzz(count=2000, seed=20261009):
+    rng = random.Random(seed)
+    failures = []
+    for i in range(count):
+        value = random_tagged_value(rng)
+        text = llf.dumps(value)
+        try:
+            back = llf.parse(text, strict=True, tags=True)
+        except llf.LLFError as error:
+            failures.append("tag fuzz %d: %s\n输入值 %r\n文本:\n%s" % (i, error, value, text))
+            continue
+        if back != value:
+            failures.append(
+                "tag fuzz %d: 往返不一致\n原值 %r\n解回 %r\n文本:\n%s"
+                % (i, value, back, text)
+            )
+        elif llf.parse(llf.dumps(llf.untag(value)), strict=True) != llf.untag(value):
+            failures.append("tag fuzz %d: untag 后往返不一致 %r" % (i, value))
+    return failures
+
+
 def main():
     failures, counts = run_vectors()
     failures += run_fuzz()
     failures += run_byte_fuzz()
+    failures += run_tag_fuzz()
     if failures:
         print("失败 %d 项：" % len(failures))
         for item in failures[:20]:
             print("  " + item)
         return 1
-    print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + %d 条帧流向量 + 2000 组定长词汇 fuzz + 5000 组随机字节 fuzz"
-          % (counts[0], counts[1], counts[2]))
+    print("全部通过：%d 条默认模式向量 + %d 条严格模式向量 + %d 条帧流向量 + %d 条类型标签向量"
+          " + 2000 组定长词汇 fuzz + 5000 组随机字节 fuzz + 2000 组类型标签 fuzz"
+          % tuple(counts))
     return 0
 
 

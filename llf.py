@@ -8,6 +8,7 @@
 
 命令行：
     python3 llf.py < message.llf
+    python3 llf.py --tags < config.llf   # 启用类型标签扩展
 """
 
 import json
@@ -36,12 +37,50 @@ TERMINATOR = "--LLF-END"
 # 扩展（见 EXTENSIONS.md）：帧流的起始框标记。
 BEGIN = "--LLF-BEGIN"
 
+# 扩展（见 EXTENSIONS.md）：类型标签的前缀，写在头之前，如 `accent !color - #ff8800`。
+TAG_PREFIX = "!"
+
 # Unicode White_Space 属性为真的码点；按属性定义，不按某个语言库的实现定义。
 _WS = frozenset(
     [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0x85, 0xA0, 0x1680]
     + list(range(0x2000, 0x200B))
     + [0x2028, 0x2029, 0x202F, 0x205F, 0x3000]
 )
+
+
+class Tagged:
+    """带类型标签的值（扩展，见 EXTENSIONS.md）。
+
+    tag 是不透明的名字，格式不解释它；value 仍是 dict / list / str / None。
+    """
+
+    __slots__ = ("tag", "value")
+
+    def __init__(self, tag, value):
+        self.tag = tag
+        self.value = value
+
+    def __eq__(self, other):
+        return isinstance(other, Tagged) and (self.tag, self.value) == (other.tag, other.value)
+
+    def __ne__(self, other):
+        return not self == other
+
+    __hash__ = None
+
+    def __repr__(self):
+        return "Tagged(%r, %r)" % (self.tag, self.value)
+
+
+def untag(value):
+    """去掉所有类型标签，返回纯 dict / list / str / None。"""
+    if isinstance(value, Tagged):
+        return untag(value.value)
+    if isinstance(value, dict):
+        return {k: untag(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [untag(v) for v in value]
+    return value
 
 
 def _strip_ws(s):
@@ -73,9 +112,10 @@ def _classify(content):
 
 
 class _Parser:
-    def __init__(self, lines):
+    def __init__(self, lines, tags=False):
         self.lines = lines
         self.i = 0
+        self.tags = tags
 
     def peek(self):
         while self.i < len(self.lines) and self.lines[self.i][2].startswith("#"):
@@ -127,10 +167,11 @@ class _Parser:
                 key, rest = self._quoted_key(content, lineno)
             else:
                 key, rest = self._plain_key(content, lineno)
+            tag, rest = self._tag(rest, lineno)
             head, payload = self._head(rest, lineno)
             if key in result:
                 _err("E06", "同一层键名重复：%r" % key, lineno)
-            result[key] = self._value(indent, head, payload, lineno)
+            result[key] = self._tagged(tag, self._value(indent, head, payload, lineno))
         return result
 
     def _list(self, indent):
@@ -147,10 +188,11 @@ class _Parser:
             if li > indent:
                 _err("E03", "缩进不是恰好多 2 格", lineno)
             self.i += 1
-            if not _starts_with_head(content):
+            tag, rest = self._tag(content, lineno)
+            if tag is None and not _starts_with_head(content):
                 _err("E15", "环境不匹配：列表环境里出现了不以头开头的行", lineno)
-            head, payload = self._head(content, lineno)
-            result.append(self._value(indent, head, payload, lineno))
+            head, payload = self._head(rest, lineno)
+            result.append(self._tagged(tag, self._value(indent, head, payload, lineno)))
         return result
 
     def _plain_key(self, content, lineno):
@@ -227,6 +269,21 @@ class _Parser:
         elif 0xDC00 <= cp <= 0xDFFF:
             _err("E13", "孤立的低位代理", lineno)
         return chr(cp), i
+
+    def _tag(self, rest, lineno):
+        """扩展：拆出头之前的 `!标签 `。未启用扩展或没有标签时原样返回。"""
+        if not self.tags or not rest.startswith(TAG_PREFIX):
+            return None, rest
+        sp = rest.find(" ")
+        tag = rest[len(TAG_PREFIX):] if sp == -1 else rest[len(TAG_PREFIX):sp]
+        if not _tag_ok(tag):
+            _err("E07", "类型标签不合法：%r" % rest[:sp if sp != -1 else len(rest)], lineno)
+        if sp == -1:
+            _err("E07", "类型标签之后缺少头", lineno)
+        return tag, rest[sp + 1:]
+
+    def _tagged(self, tag, value):
+        return value if tag is None else Tagged(tag, value)
 
     def _head(self, rest, lineno):
         token = rest.split(" ", 1)[0]
@@ -331,15 +388,18 @@ def _split_message(text, strict):
     _err("E02", "缺少结束符（截断）")
 
 
-def parse(text, strict=False):
-    """解析一条 LLF 消息，返回 Python 的 dict / list / str / None。"""
+def parse(text, strict=False, tags=False):
+    """解析一条 LLF 消息，返回 Python 的 dict / list / str / None。
+
+    tags=True 启用类型标签扩展（见 EXTENSIONS.md）：带标签的值包成 Tagged。
+    """
     body, rest = _split_message(text, strict)
     if rest:
         _err("E12", "结束符之后还有内容")
-    return _Parser(_lines_from(body)).parse_message()
+    return _Parser(_lines_from(body), tags).parse_message()
 
 
-def parse_multi(text, strict=False):
+def parse_multi(text, strict=False, tags=False):
     """解析一个消息流，返回消息列表。消息之间的空行忽略。
 
     这是参考实现的便利入口，不是格式要求：格式只定义单条消息。
@@ -358,12 +418,12 @@ def parse_multi(text, strict=False):
                 break
         if end is None:
             _err("E02", "缺少结束符（截断）")
-        out.append(_Parser(_lines_from(raw_lines[start:end])).parse_message())
+        out.append(_Parser(_lines_from(raw_lines[start:end]), tags).parse_message())
         start = end + 1
     return out
 
 
-def parse_frames(text, strict=False):
+def parse_frames(text, strict=False, tags=False):
     """解析 --LLF-BEGIN ... --LLF-END 帧流（扩展，见 EXTENSIONS.md），返回消息列表。
 
     frame 之外的内容与空行忽略；frame 内仍按单条 LLF 消息解析。
@@ -378,7 +438,7 @@ def parse_frames(text, strict=False):
                 _err("E02", "帧流里上一个 frame 缺少结束符（截断）")
             start = idx + 1
         elif marker == TERMINATOR and start is not None:
-            out.append(_Parser(_lines_from(raw_lines[start:idx])).parse_message())
+            out.append(_Parser(_lines_from(raw_lines[start:idx]), tags).parse_message())
             start = None
     if start is not None:
         _err("E02", "帧流缺少结束符（截断）")
@@ -398,6 +458,10 @@ def _plain_key_ok(key):
         and not key.startswith("#")
         and not key.startswith("|")
     )
+
+
+def _tag_ok(tag):
+    return tag != "" and not any(ord(c) in _WS for c in tag) and '"' not in tag
 
 
 def _encode_key(key):
@@ -423,6 +487,13 @@ def _emit(key, value, indent, lines):
     prefix = _sp(indent)
     if key is not None:
         prefix += _encode_key(key) + " "
+    if isinstance(value, Tagged):
+        if not isinstance(value.tag, str) or not _tag_ok(value.tag):
+            raise ValueError("类型标签不合法：%r" % (value.tag,))
+        if isinstance(value.value, Tagged):
+            raise ValueError("一个值只能有一个类型标签")
+        prefix += TAG_PREFIX + value.tag + " "
+        value = value.value
     if value is None:
         lines.append(prefix + "_")
         return
@@ -448,7 +519,12 @@ def _emit(key, value, indent, lines):
 
 
 def dumps(value):
-    """把 dict / list / str / None 编码成一条 LLF 消息。"""
+    """把 dict / list / str / None 编码成一条 LLF 消息。
+
+    值里可以出现 Tagged（类型标签扩展），但顶层值本身不能带标签。
+    """
+    if isinstance(value, Tagged):
+        raise ValueError("顶层值不能带类型标签")
     lines = []
     if isinstance(value, dict):
         if value:
@@ -459,14 +535,26 @@ def dumps(value):
     return "".join(line + "\n" for line in lines) + TERMINATOR + "\n"
 
 
+def to_json_value(value):
+    """把 Tagged 展开成 {"$tag": ..., "$value": ...}，便于转成 JSON 查看。"""
+    if isinstance(value, Tagged):
+        return {"$tag": value.tag, "$value": to_json_value(value.value)}
+    if isinstance(value, dict):
+        return {k: to_json_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [to_json_value(v) for v in value]
+    return value
+
+
 def _main():
+    tags = "--tags" in sys.argv[1:]
     data = sys.stdin.read()
     try:
-        value = parse(data)
+        value = parse(data, tags=tags)
     except LLFError as error:
         print(str(error), file=sys.stderr)
         return 1
-    print(json.dumps(value, ensure_ascii=False, indent=2))
+    print(json.dumps(to_json_value(value), ensure_ascii=False, indent=2))
     return 0
 
 

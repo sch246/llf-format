@@ -607,5 +607,183 @@
         "call - write_file\nargs {}\n  path - /etc/passwd"
       ]
     }
+  ],
+  "tag_vectors": [
+    {
+      "id": 1,
+      "input": "accent !color - #ff8800\n--LLF-END\n",
+      "expected": {
+        "accent": {
+          "$tag": "color",
+          "$value": "#ff8800"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "input": "w !rect {}\n  x - 0\n  y - 0\n--LLF-END\n",
+      "expected": {
+        "w": {
+          "$tag": "rect",
+          "$value": {
+            "x": "0",
+            "y": "0"
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "input": "p []\n  !color - #fff\n  !gradient {}\n    from - #000\n  - plain\n--LLF-END\n",
+      "expected": {
+        "p": [
+          {
+            "$tag": "color",
+            "$value": "#fff"
+          },
+          {
+            "$tag": "gradient",
+            "$value": {
+              "from": "#000"
+            }
+          },
+          "plain"
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "input": "c !color _\n--LLF-END\n",
+      "expected": {
+        "c": {
+          "$tag": "color",
+          "$value": null
+        }
+      }
+    },
+    {
+      "id": 5,
+      "input": "s !code -\n  |x\n  |\n--LLF-END\n",
+      "expected": {
+        "s": {
+          "$tag": "code",
+          "$value": "x\n"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "input": "s !int - !x\n--LLF-END\n",
+      "expected": {
+        "s": {
+          "$tag": "int",
+          "$value": "!x"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "input": "\"a b\" !名字 []\n--LLF-END\n",
+      "expected": {
+        "a b": {
+          "$tag": "名字",
+          "$value": []
+        }
+      }
+    },
+    {
+      "id": 8,
+      "input": "s !!int - 1\n--LLF-END\n",
+      "expected": {
+        "s": {
+          "$tag": "!int",
+          "$value": "1"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "input": "!color - #fff\n--LLF-END\n",
+      "expected": {
+        "!color": "#fff"
+      }
+    },
+    {
+      "id": 10,
+      "input": "a {}\n  !x !t - v\n--LLF-END\n",
+      "expected": {
+        "a": {
+          "!x": {
+            "$tag": "t",
+            "$value": "v"
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "input": "-\n  |!t - x\n--LLF-END\n",
+      "expected": "!t - x"
+    },
+    {
+      "id": 12,
+      "input": "s ! - x\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 13,
+      "input": "s !t\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 14,
+      "input": "s !t  - x\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 15,
+      "input": "s !a !b - x\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 16,
+      "input": "s !a\"b - x\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 17,
+      "input": "p []\n  !t\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 18,
+      "input": "p []\n  !t x\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 19,
+      "input": "s !t　- x\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 20,
+      "input": "accent !color - #ff8800\n--LLF-END\n",
+      "error": "E07",
+      "tags": false
+    },
+    {
+      "id": 21,
+      "input": "p []\n  !color - #fff\n--LLF-END\n",
+      "error": "E15",
+      "tags": false
+    },
+    {
+      "id": 22,
+      "input": "!color - #fff\n--LLF-END\n",
+      "expected": {
+        "!color": "#fff"
+      },
+      "tags": false
+    }
   ]
 }

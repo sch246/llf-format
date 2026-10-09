@@ -10,7 +10,7 @@ import os
 import sys
 from collections import Counter
 
-FILES = ("SPEC.md", "README.md")
+FILES = ("SPEC.md", "README.md", "EXTENSIONS.md")
 
 
 def _cells_of(line):

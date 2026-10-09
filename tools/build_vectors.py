@@ -1,8 +1,10 @@
 """从 Python 字面量生成 vectors.json，避免手抄转义出错。
 
 vectors.json 的形态：
-    {"vectors": [...], "strict_vectors": [...]}
-前一组用默认（宽松）模式解析，后一组用严格模式。
+    {"vectors": [...], "strict_vectors": [...], "frame_vectors": [...], "tag_vectors": [...]}
+vectors 用默认（宽松）模式解析，strict_vectors 用严格模式；后两组属于扩展（见 EXTENSIONS.md）。
+tag_vectors 默认以 tags=True 解析，带 "tags": false 的条目验证不启用扩展时的行为；
+期望值里的标签写成 {"$tag": 名字, "$value": 值}。
 
     python3 tools/build_vectors.py
 """
@@ -13,6 +15,7 @@ import os
 DEFAULT = []
 STRICT = []
 FRAMES = []
+TAGS = []
 
 
 def ok(i, text, expected):
@@ -37,6 +40,24 @@ def frame_ok(i, text, expected):
 
 def frame_bad(i, text, code):
     FRAMES.append({"id": i, "input": text, "error": code})
+
+
+def tag(name, value):
+    return {"$tag": name, "$value": value}
+
+
+def tag_ok(i, text, expected, tags=True):
+    item = {"id": i, "input": text, "expected": expected}
+    if not tags:
+        item["tags"] = False
+    TAGS.append(item)
+
+
+def tag_bad(i, text, code, tags=True):
+    item = {"id": i, "input": text, "error": code}
+    if not tags:
+        item["tags"] = False
+    TAGS.append(item)
 
 
 END = "\n--LLF-END\n"
@@ -142,16 +163,44 @@ frame_bad(5, "--LLF-BEGIN\ncall - a\n--LLF-BEGIN\ncall - b\n--LLF-END\n", "E02")
 frame_ok(6, "--LLF-BEGIN\n-\n|call - write_file\n|args {}\n|  path - /etc/passwd\n--LLF-END\n",
          ["call - write_file\nargs {}\n  path - /etc/passwd"])
 
+# 扩展：类型标签 !tag（见 EXTENSIONS.md）。
+tag_ok(1, "accent !color - #ff8800" + END, {"accent": tag("color", "#ff8800")})
+tag_ok(2, "w !rect {}\n  x - 0\n  y - 0" + END, {"w": tag("rect", {"x": "0", "y": "0"})})
+tag_ok(3, "p []\n  !color - #fff\n  !gradient {}\n    from - #000\n  - plain" + END,
+       {"p": [tag("color", "#fff"), tag("gradient", {"from": "#000"}), "plain"]})
+tag_ok(4, "c !color _" + END, {"c": tag("color", None)})
+tag_ok(5, "s !code -\n  |x\n  |" + END, {"s": tag("code", "x\n")})
+tag_ok(6, "s !int - !x" + END, {"s": tag("int", "!x")})
+tag_ok(7, '"a b" !名字 []' + END, {"a b": tag("名字", [])})
+tag_ok(8, "s !!int - 1" + END, {"s": tag("!int", "1")})
+# 字典环境与顶层第一行里，以 ! 开头的仍是普通键名，与本体一致。
+tag_ok(9, "!color - #fff" + END, {"!color": "#fff"})
+tag_ok(10, "a {}\n  !x !t - v" + END, {"a": {"!x": tag("t", "v")}})
+tag_ok(11, "-\n  |!t - x" + END, "!t - x")
+# 写错标签一律 E07（标签占的是头的位置）；一个值只有一个标签。
+tag_bad(12, "s ! - x" + END, "E07")
+tag_bad(13, "s !t" + END, "E07")
+tag_bad(14, "s !t  - x" + END, "E07")
+tag_bad(15, "s !a !b - x" + END, "E07")
+tag_bad(16, 's !a"b - x' + END, "E07")
+tag_bad(17, "p []\n  !t" + END, "E07")
+tag_bad(18, "p []\n  !t x" + END, "E07")
+tag_bad(19, "s !t\u3000- x" + END, "E07")
+# 不启用扩展时，带标签的消息直接报错（fail closed），不会被悄悄读错。
+tag_bad(20, "accent !color - #ff8800" + END, "E07", tags=False)
+tag_bad(21, "p []\n  !color - #fff" + END, "E15", tags=False)
+tag_ok(22, "!color - #fff" + END, {"!color": "#fff"}, tags=False)
+
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     target = os.path.join(here, "..", "vectors.json")
-    payload = {"vectors": DEFAULT, "strict_vectors": STRICT, "frame_vectors": FRAMES}
+    payload = {"vectors": DEFAULT, "strict_vectors": STRICT, "frame_vectors": FRAMES, "tag_vectors": TAGS}
     with open(target, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
-    print("wrote %d vectors + %d strict vectors + %d frame vectors to %s"
-          % (len(DEFAULT), len(STRICT), len(FRAMES), os.path.normpath(target)))
+    print("wrote %d vectors + %d strict vectors + %d frame vectors + %d tag vectors to %s"
+          % (len(DEFAULT), len(STRICT), len(FRAMES), len(TAGS), os.path.normpath(target)))
 
 
 if __name__ == "__main__":
