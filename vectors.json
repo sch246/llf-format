@@ -536,6 +536,23 @@
           "a": "2"
         }
       ]
+    },
+    {
+      "id": 82,
+      "input": "a -\n  # c\n  |x\n--LLF-END\n",
+      "error": "E11"
+    },
+    {
+      "id": 83,
+      "input": "-\n# c\n|x\n--LLF-END\n",
+      "error": "E11"
+    },
+    {
+      "id": 84,
+      "input": "\"a\tb\u0001\" - v\n--LLF-END\n",
+      "expected": {
+        "a\tb\u0001": "v"
+      }
     }
   ],
   "strict_vectors": [

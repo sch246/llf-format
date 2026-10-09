@@ -152,6 +152,10 @@ ok(78, '"k\u000b" - v' + END, {"k\u000b": "v"})
 ok(79, "k\u001c - v" + END, {"k\u001c": "v"})
 ok_multi(80, "a - 1" + END + "\n" + "a - 2" + END, [{"a": "1"}, {"a": "2"}])
 ok_multi(81, "\n\n" + "a - 1" + END + "a - 2" + END, [{"a": "1"}, {"a": "2"}])
+# 文本块必须紧跟 - 行；引号键里的控制字符可以原样出现。
+bad(82, "a -\n  # c\n  |x" + END, "E11")
+bad(83, "-\n# c\n|x" + END, "E11")
+ok(84, '"a\tb\u0001" - v' + END, {"a\tb\u0001": "v"})
 
 strict_ok("S1", "a -\n  |x\r\n--LLF-END\n", {"a": "x\r"})
 strict_ok("S2", "a - x\r\n--LLF-END\n", {"a": "x"})

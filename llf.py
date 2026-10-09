@@ -304,11 +304,14 @@ class _Parser:
                 if nxt is not None and (nxt[2].startswith("|") or nxt[1] > indent):
                     _err("E10", "字符串既有同行载荷又有子层", nxt[0])
                 return payload
+            # 文本块必须紧跟 `-` 行：中间夹注释时不开始文本块，后面的 `|` 行报 E11。
+            if self.i < len(self.lines) and self.lines[self.i][2].startswith("|"):
+                return self._text_block()
             nxt = self.peek()
             if nxt is None:
                 return ""
             if nxt[2].startswith("|"):
-                return self._text_block()
+                _err("E11", "文本块必须紧跟 - 行，中间不能有注释", nxt[0])
             if nxt[1] <= indent:
                 return ""
             if nxt[1] != indent + 2:
