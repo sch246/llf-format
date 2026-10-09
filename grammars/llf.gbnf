@@ -76,5 +76,5 @@ plain_char ::= [^\x20\t\n\r\x22]
 plain_start ::= [^\x20\t\n\r\x22\x23\x7C]
 plain_start2 ::= [^\x20\t\n\r\x22\x23\x7C\x7B\x5B]
 quoted_key ::= "\x22" qchar* "\x22"
-qchar ::= [^\x22\x5C] | "\x5C" ["\x5C/bfnrt] | "\x5C" "u" hex hex hex hex
+qchar ::= [^\x22\x5C\x00-\x1F] | "\x5C" ["\x5C/bfnrt] | "\x5C" "u" hex hex hex hex
 hex ::= [0-9a-fA-F]

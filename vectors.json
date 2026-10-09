@@ -501,7 +501,7 @@
     },
     {
       "id": 78,
-      "input": "\"k\u000b\" - v\n--LLF-END\n",
+      "input": "\"k\\u000b\" - v\n--LLF-END\n",
       "expected": {
         "k\u000b": "v"
       }
@@ -549,10 +549,46 @@
     },
     {
       "id": 84,
-      "input": "\"a\tb\u0001\" - v\n--LLF-END\n",
+      "input": "\"a\tb\" - v\n--LLF-END\n",
+      "error": "E13"
+    },
+    {
+      "id": 85,
+      "input": "\"a\u0001\" - v\n--LLF-END\n",
+      "error": "E13"
+    },
+    {
+      "id": 86,
+      "input": "a {}\t\n--LLF-END\n",
       "expected": {
-        "a\tb\u0001": "v"
+        "a": {}
       }
+    },
+    {
+      "id": 87,
+      "input": "a []\t\n  _\t\n--LLF-END\n",
+      "expected": {
+        "a": [
+          null
+        ]
+      }
+    },
+    {
+      "id": 88,
+      "input": "a -\t\n  |x\n--LLF-END\n",
+      "expected": {
+        "a": "x"
+      }
+    },
+    {
+      "id": 89,
+      "input": "a -\tvalue\n--LLF-END\n",
+      "error": "E07"
+    },
+    {
+      "id": 90,
+      "input": "a {}\tx\n--LLF-END\n",
+      "error": "E07"
     }
   ],
   "strict_vectors": [
@@ -568,6 +604,16 @@
       "input": "a - x\r\n--LLF-END\n",
       "expected": {
         "a": "x"
+      }
+    },
+    {
+      "id": "S3",
+      "input": "a {}\r\n  b -\r\n    |x\r\n    |y\r\n  c _\r\n--LLF-END\r\n",
+      "expected": {
+        "a": {
+          "b": "x\r\ny\r",
+          "c": null
+        }
       }
     }
   ],

@@ -148,17 +148,26 @@ ok(74, '"\u3000" - v' + END, {"\u3000": "v"})
 bad(75, "k\u00a0 - v" + END, "E05")
 ok(76, '"k\u00a0" - v' + END, {"k\u00a0": "v"})
 bad(77, "k\u000b - v" + END, "E05")
-ok(78, '"k\u000b" - v' + END, {"k\u000b": "v"})
+ok(78, '"k\\u000b" - v' + END, {"k\u000b": "v"})
 ok(79, "k\u001c - v" + END, {"k\u001c": "v"})
 ok_multi(80, "a - 1" + END + "\n" + "a - 2" + END, [{"a": "1"}, {"a": "2"}])
 ok_multi(81, "\n\n" + "a - 1" + END + "a - 2" + END, [{"a": "1"}, {"a": "2"}])
 # 文本块必须紧跟 - 行；引号键里的控制字符可以原样出现。
 bad(82, "a -\n  # c\n  |x" + END, "E11")
 bad(83, "-\n# c\n|x" + END, "E11")
-ok(84, '"a\tb\u0001" - v' + END, {"a\tb\u0001": "v"})
+bad(84, '"a\tb" - v' + END, "E13")
+bad(85, '"a\u0001" - v' + END, "E13")
+# 头之后的行尾空白可以是任意 White_Space；行内分词仍只认 U+0020。
+ok(86, "a {}\t" + END, {"a": {}})
+ok(87, "a []\t\n  _\t" + END, {"a": [None]})
+ok(88, "a -\t\n  |x" + END, {"a": "x"})
+bad(89, "a -\tvalue" + END, "E07")
+bad(90, "a {}\tx" + END, "E07")
 
 strict_ok("S1", "a -\n  |x\r\n--LLF-END\n", {"a": "x\r"})
 strict_ok("S2", "a - x\r\n--LLF-END\n", {"a": "x"})
+strict_ok("S3", "a {}\r\n  b -\r\n    |x\r\n    |y\r\n  c _\r\n--LLF-END\r\n",
+          {"a": {"b": "x\r\ny\r", "c": None}})
 
 # 扩展：--LLF-BEGIN ... --LLF-END 帧流（见 EXTENSIONS.md）。
 frame_ok(1, "--LLF-BEGIN\ncall - write_file\nid - c1\n--LLF-END\n--LLF-BEGIN\ncall - read_file\nid - c2\n--LLF-END\n",

@@ -101,8 +101,20 @@ def _indent_of(raw, lineno):
     return n
 
 
+def _rstrip_ws(s):
+    j = len(s)
+    while j > 0 and ord(s[j - 1]) in _WS:
+        j -= 1
+    return s[:j]
+
+
+def _head_token(rest):
+    """行内第一个以 U+0020 分隔的 token；头之后直到行尾只有空白时，去掉这段空白。"""
+    return _rstrip_ws(rest.split(" ", 1)[0])
+
+
 def _starts_with_head(content):
-    return content.split(" ", 1)[0] in HEADS
+    return _head_token(content) in HEADS
 
 
 def _classify(content):
@@ -244,6 +256,8 @@ class _Parser:
                     out.append(ch)
                 else:
                     _err("E13", "非法转义 \\%s" % e, lineno)
+            elif ord(c) < 0x20:
+                _err("E13", "引号键里的控制字符必须转义（同 JSON）：U+%04X" % ord(c), lineno)
             else:
                 out.append(c)
                 i += 1
@@ -286,7 +300,7 @@ class _Parser:
         return value if tag is None else Tagged(tag, value)
 
     def _head(self, rest, lineno):
-        token = rest.split(" ", 1)[0]
+        token = _head_token(rest)
         if token not in HEADS:
             _err("E07", "未知的头符号：%r" % rest[:4], lineno)
         payload = rest[len(token):]
