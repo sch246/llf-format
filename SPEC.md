@@ -227,6 +227,7 @@ LLF 只做一件事：把结构无歧义地交出来。它**不依赖 JSON，也
 - 若选用 JSON Schema，对应关系是：`object` → `{}`，`array` → `[]`，`null` → `_`，`string` / `integer` / `number` / `boolean` → `-` 的字符串载荷，由 schema 解释。
 - 没有 schema 时，所有 `-` 载荷当字符串、`_` 当 null。**信息不丢**：字符串原文完整保留，之后随时可以用 schema 重新解释成整数、布尔等。
 - schema 的解释失败（例如 `- abc` 遇上 `integer`）是 schema 层的错误，不是格式错误。
+- 想让文件自己说明某个值的类型（例如配置映射到 UI）时，可用 [EXTENSIONS.md](EXTENSIONS.md) 第 3 节的类型标签扩展 `!tag`：它只给值挂一个不透明的名字，不改变值，也不改变本节的任何约定。
 
 ## 7. 流式生成与解析
 
